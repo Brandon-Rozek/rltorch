@@ -2,11 +2,14 @@ class Network:
     """
     Wrapper around model which provides copy of it instead of trained weights
     """
-    def __init__(self, model, optimizer, config, logger = None, name = ""):
+    def __init__(self, model, optimizer, config, device = None, logger = None, name = ""):
         self.model = model
         self.optimizer = optimizer(model.parameters(), lr = config['learning_rate'], weight_decay = config['weight_decay'])
         self.logger = logger
         self.name = name
+        self.device = device
+        if self.device is not None:
+            self.model = self.model.to(device)
 
     def __call__(self, *args):
         return self.model(*args)

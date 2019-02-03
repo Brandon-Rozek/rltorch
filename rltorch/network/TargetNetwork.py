@@ -4,9 +4,11 @@ class TargetNetwork:
     """
     Wrapper around model which provides copy of it instead of trained weights
     """
-    def __init__(self, network):
+    def __init__(self, network, device = None):
         self.model = network.model
         self.target_model = deepcopy(network.model)
+        if network.device is not None:
+            self.target_model = self.target_model.to(network.device)
 
     def __call__(self, *args):
         return self.model(*args)

@@ -107,11 +107,11 @@ logwriter = rltorch.log.LogWriter(logger, SummaryWriter())
 # Setting up the networks
 device = torch.device("cuda:0" if torch.cuda.is_available() and not config['disable_cuda'] else "cpu")
 net = rn.Network(Value(state_size, action_size), 
-                    torch.optim.Adam, config, logger = logger, name = "DQN")
-target_net = rn.TargetNetwork(net)
+                    torch.optim.Adam, config, device = device, logger = logger, name = "DQN")
+target_net = rn.TargetNetwork(net, device = device)
 
 # Actor takes a network and uses it to produce actions from given states
-actor = ArgMaxSelector(net, action_size)
+actor = ArgMaxSelector(net, action_size, device = device)
 # Memory stores experiences for later training
 memory = M.ReplayMemory(capacity = config['memory_size'])
 
