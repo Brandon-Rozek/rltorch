@@ -19,11 +19,11 @@ class DQNAgent:
         state_batch, action_batch, reward_batch, next_state_batch, not_done_batch = M.zip_batch(minibatch)
         
         # Send to their appropriate devices
-        state_batch = state_batch.to(net.device)
-        action_batch = action_batch.to(net.device)
-        reward_batch = reward_batch.to(net.device)
-        next_state_batch = next_state_batch.to(net.device)
-        not_done_batch = not_done_batch.to(net.device)
+        state_batch = state_batch.to(self.net.device)
+        action_batch = action_batch.to(self.net.device)
+        reward_batch = reward_batch.to(self.net.device)
+        next_state_batch = next_state_batch.to(self.net.device)
+        not_done_batch = not_done_batch.to(self.net.device)
 
         obtained_values = self.net(state_batch).gather(1, action_batch.view(self.config['batch_size'], 1))
 
