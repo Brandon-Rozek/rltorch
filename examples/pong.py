@@ -17,31 +17,37 @@ class Value(nn.Module):
     self.action_size = action_size
     
     self.conv1 = nn.Conv2d(4, 32, kernel_size = (8, 8), stride = (4, 4))
+    self.conv_norm1 = nn.LayerNorm([32, 19, 19])
     self.conv2 = nn.Conv2d(32, 64, kernel_size = (4, 4), stride = (2, 2))    
+    self.conv_norm2 = nn.LayerNorm([64, 8, 8])
     self.conv3 = nn.Conv2d(64, 64, kernel_size = (3, 3), stride = (1, 1))
+    self.conv_norm3 = nn.LayerNorm([64, 6, 6])
     
     self.fc1 = rn.NoisyLinear(64 * 6 * 6, 384)
+    self.fc_norm = nn.LayerNorm(384)
     
     self.value_fc = rn.NoisyLinear(384, 384)
+    self.value_fc_norm = nn.LayerNorm(384)
     self.value = rn.NoisyLinear(384, 1)
     
     self.advantage_fc = rn.NoisyLinear(384, 384)
+    self.advantage_fc_norm = nn.LayerNorm(384)
     self.advantage = rn.NoisyLinear(384, action_size)
 
   
   def forward(self, x):
-    x = F.relu(self.conv1(x))   
-    x = F.relu(self.conv2(x))
-    x = F.relu(self.conv3(x))
+    x = F.relu(self.conv_norm1(self.conv1(x)))
+    x = F.relu(self.conv_norm2(self.conv2(x)))
+    x = F.relu(self.conv_norm3(self.conv3(x)))
     
     # Makes batch_size dimension again
     x = x.view(-1, 64 * 6 * 6)
-    x = F.relu(self.fc1(x))
+    x = F.relu(self.fc_norm(self.fc1(x)))
     
-    state_value = F.relu(self.value_fc(x))
+    state_value = F.relu(self.value_fc_norm(self.value_fc(x)))
     state_value = self.value(state_value)
     
-    advantage = F.relu(self.advantage_fc(x))
+    advantage = F.relu(self.advantage_fc_norm(self.advantage_fc(x)))
     advantage = self.advantage(advantage)
     
     x = state_value + advantage - advantage.mean()
@@ -52,24 +58,34 @@ class Value(nn.Module):
     
     return x
     
+    
 
 
 
 config = {}
 config['seed'] = 901
 config['environment_name'] = 'PongNoFrameskip-v4'
-config['memory_size'] = 4000
-config['total_training_episodes'] = 50
+config['memory_size'] = 5000
+config['total_training_episodes'] = 500
 config['total_evaluation_episodes'] = 10
 config['learning_rate'] = 1e-4
 config['target_sync_tau'] = 1e-3
-config['weight_decay'] = 1e-8
-config['discount_rate'] = 0.999
+config['discount_rate'] = 0.99
+config['exploration_rate'] = rltorch.scheduler.ExponentialScheduler(initial_value = 0.1, end_value = 0.01, iterations = 5000)
 config['replay_skip'] = 4
 config['batch_size'] = 32 * (config['replay_skip'] + 1)
 # How many episodes between printing out the episode stats
 config['print_stat_n_eps'] = 1 
 config['disable_cuda'] = False
+# Prioritized vs Random Sampling
+# 0 - Random sampling
+# 1 - Only the highest prioirities
+config['prioritized_replay_sampling_priority'] = 0.6
+# How important are the weights for the loss?
+# 0 - Treat all losses equally
+# 1 - Lower the importance of high losses
+# Should ideally start from 0 and move your way to 1 to prevent overfitting
+config['prioritized_replay_weight_importance'] = rltorch.scheduler.ExponentialScheduler(initial_value = 0.4, end_value = 1, iterations = 5000)
 
 def train(runner, agent, config, logwriter = None):
     finished = False
@@ -113,7 +129,7 @@ target_net = rn.TargetNetwork(net, device = device)
 # Actor takes a network and uses it to produce actions from given states
 actor = ArgMaxSelector(net, action_size, device = device)
 # Memory stores experiences for later training
-memory = M.ReplayMemory(capacity = config['memory_size'])
+memory = M.PrioritizedReplayMemory(capacity = config['memory_size'], alpha = config['prioritized_replay_sampling_priority'])
 
 # Runner performs a certain number of steps in the environment
 runner = rltorch.mp.EnvironmentRun(env, actor, config, memory = memory, logger = logger, name = "Training")
