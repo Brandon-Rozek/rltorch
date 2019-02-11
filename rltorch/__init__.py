@@ -4,5 +4,6 @@ from . import env
 from . import memory
 from . import network
 from . import mp
+from . import scheduler
 from .seed import *
 from . import log

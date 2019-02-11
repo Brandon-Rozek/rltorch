@@ -4,7 +4,10 @@ class Network:
     """
     def __init__(self, model, optimizer, config, device = None, logger = None, name = ""):
         self.model = model
-        self.optimizer = optimizer(model.parameters(), lr = config['learning_rate'], weight_decay = config['weight_decay'])
+        if 'weight_decay' in config:
+            self.optimizer = optimizer(model.parameters(), lr = config['learning_rate'], weight_decay = config['weight_decay'])
+        else:
+            self.optimizer = optimizer(model.parameters(), lr = config['learning_rate'])
         self.logger = logger
         self.name = name
         self.device = device
@@ -14,9 +17,10 @@ class Network:
     def __call__(self, *args):
         return self.model(*args)
         
-    def clamp_gradients(self):
+    def clamp_gradients(self, x = 1):
+        assert x > 0
         for param in self.model.parameters():
-            param.grad.data.clamp_(-1, 1)
+            param.grad.data.clamp_(-x, x)
     
     def zero_grad(self):
         self.model.zero_grad()

@@ -1,4 +1,4 @@
-from random import sample
+import random
 from collections import namedtuple
 import torch
 Transition = namedtuple('Transition',
@@ -22,8 +22,22 @@ class ReplayMemory(object):
         self.memory.clear()
         self.position = 0
 
+    def _encode_sample(self, indexes):
+        states, actions, rewards, next_states, dones = [], [], [], [], []
+        for i in indexes:
+            observation = self.memory[i]
+            state, action, reward, next_state, done = observation
+            states.append(state)
+            actions.append(action)
+            rewards.append(reward)
+            next_states.append(next_state)
+            dones.append(done)
+        batch = list(zip(states, actions, rewards, next_states, dones))
+        return batch
+
+
     def sample(self, batch_size):
-        return sample(self.memory, batch_size)
+        return random.sample(self.memory, batch_size)
 
     def __len__(self):
         return len(self.memory)
@@ -43,8 +57,11 @@ class ReplayMemory(object):
     def __reversed__(self):
         return reversed(self.memory)
 
-def zip_batch(minibatch):
-    state_batch, action_batch, reward_batch, next_state_batch, done_batch = zip(*minibatch)
+def zip_batch(minibatch, priority = False):
+    if priority:
+        state_batch, action_batch, reward_batch, next_state_batch, done_batch, weights, indexes = zip(*minibatch)
+    else:
+        state_batch, action_batch, reward_batch, next_state_batch, done_batch = zip(*minibatch)
         
     state_batch = torch.cat(state_batch)
     action_batch = torch.tensor(action_batch)
@@ -52,4 +69,7 @@ def zip_batch(minibatch):
     not_done_batch = ~torch.tensor(done_batch)
     next_state_batch = torch.cat(next_state_batch)[not_done_batch]
 
-    return state_batch, action_batch, reward_batch, next_state_batch, not_done_batch
+    if priority:
+        return state_batch, action_batch, reward_batch, next_state_batch, not_done_batch, weights, indexes
+    else:
+        return state_batch, action_batch, reward_batch, next_state_batch, not_done_batch
