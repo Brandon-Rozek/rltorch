@@ -9,5 +9,5 @@ class EpsilonGreedySelector(ArgMaxSelector):
     # best_act is already implemented in ArgMaxSelector
     def act(self, state):
         eps = next(self.epsilon) if isinstance(self.epsilon, collections.Iterable) else self.epsilon
-        action = self.random_act() if np.random.rand() < epsilon else self.best_act(state)
+        action = self.random_act() if np.random.rand() < eps else self.best_act(state)
         return action
