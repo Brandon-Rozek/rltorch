@@ -9,14 +9,14 @@ import rltorch.memory as M
 import rltorch.env as E
 from rltorch.action_selector import ArgMaxSelector
 from tensorboardX import SummaryWriter
-
+import torch.multiprocessing as mp
 
 class Value(nn.Module):
   def __init__(self, state_size, action_size):
     super(Value, self).__init__()
     self.state_size = state_size
     self.action_size = action_size
-    
+
     self.fc1 = rn.NoisyLinear(state_size, 64)
     self.fc_norm = nn.LayerNorm(64)
     
@@ -28,7 +28,6 @@ class Value(nn.Module):
     self.advantage_fc_norm = nn.LayerNorm(64)
     self.advantage = rn.NoisyLinear(64, action_size)
 
-  
   def forward(self, x):
     x = F.relu(self.fc_norm(self.fc1(x)))
     
@@ -67,13 +66,16 @@ config['prioritized_replay_sampling_priority'] = 0.6
 # Should ideally start from 0 and move your way to 1 to prevent overfitting
 config['prioritized_replay_weight_importance'] = rltorch.scheduler.ExponentialScheduler(initial_value = 0.4, end_value = 1, iterations = 5000)
 
-def train(runner, agent, config, logwriter = None):
+def train(runner, agent, config, logwriter = None, memory = None):
     finished = False
     episode_num = 1
+    memory_queue = mp.Queue(maxsize = config['replay_skip'] + 1)
     while not finished:
-        runner.run(config['replay_skip'] + 1, printstat = runner.episode_num % config['print_stat_n_eps'] == 0)
+        runner.run(config['replay_skip'] + 1, printstat = runner.episode_num % config['print_stat_n_eps'] == 0, memory = memory_queue)
         agent.learn()
         runner.join()
+        for i in range(config['replay_skip'] + 1):
+            memory.append(*memory_queue.get())
         # When the episode number changes, write out the weight histograms
         if logwriter is not None and episode_num < runner.episode_num:
             episode_num = runner.episode_num
@@ -84,6 +86,7 @@ def train(runner, agent, config, logwriter = None):
         finished = runner.episode_num > config['total_training_episodes']
 
 
+torch.multiprocessing.set_sharing_strategy('file_system') # To not hit file descriptor memory limit
 # Setting up the environment
 rltorch.set_seed(config['seed'])
 print("Setting up environment...", end = " ")
@@ -98,11 +101,14 @@ action_size = env.action_space.n
 logger = rltorch.log.Logger()
 logwriter = rltorch.log.LogWriter(logger, SummaryWriter())
 
+
 # Setting up the networks
 device = torch.device("cuda:0" if torch.cuda.is_available() and not config['disable_cuda'] else "cpu")
 net = rn.Network(Value(state_size, action_size), 
                     torch.optim.Adam, config, device = device, logger = logger, name = "DQN")
 target_net = rn.TargetNetwork(net, device = device)
+net.model.share_memory()
+target_net.model.share_memory()
 
 # Actor takes a net and uses it to produce actions from given states
 actor = ArgMaxSelector(net, action_size, device = device)
@@ -111,14 +117,14 @@ memory = M.PrioritizedReplayMemory(capacity = config['memory_size'], alpha = con
 # memory = M.ReplayMemory(capacity = config['memory_size'])
 
 # Runner performs a certain number of steps in the environment
-runner = rltorch.mp.EnvironmentRun(env, actor, config, memory = memory, logger = logger, name = "Training")
+runner = rltorch.mp.EnvironmentRun(env, actor, config, logger = logger, name = "Training")
 runner.start()
 
 # Agent is what performs the training
 agent = rltorch.agents.DQNAgent(net, memory, config, target_net = target_net, logger = logger)
    
 print("Training...")
-train(runner, agent, config, logwriter = logwriter) 
+train(runner, agent, config, logwriter = logwriter, memory = memory) 
 
 # For profiling...
 # import cProfile
