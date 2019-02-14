@@ -88,76 +88,60 @@ config['prioritized_replay_sampling_priority'] = 0.6
 # Should ideally start from 0 and move your way to 1 to prevent overfitting
 config['prioritized_replay_weight_importance'] = rltorch.scheduler.ExponentialScheduler(initial_value = 0.4, end_value = 1, iterations = 5000)
 
-def train(runner, agent, config, logwriter = None, memory = None):
-    finished = False
-    episode_num = 1
-    memory_queue = mp.Queue(maxsize = config['replay_skip'] + 1)
-    while not finished:
-        runner.run(config['replay_skip'] + 1, printstat = runner.episode_num % config['print_stat_n_eps'] == 0, memory = memory_queue)
-        agent.learn()
-        runner.join()
-        for i in range(config['replay_skip'] + 1):
-          memory.append(*memory_queue.get())
-        # When the episode number changes, write out the weight histograms
-        if logwriter is not None and episode_num < runner.episode_num:
-            episode_num = runner.episode_num
-            agent.net.log_named_parameters()
-        
-        if logwriter is not None:
-            logwriter.write()
-        finished = runner.episode_num > config['total_training_episodes']
+if __name__ == "__main__":
+  torch.multiprocessing.set_sharing_strategy('file_system') # To not hit file descriptor memory limit
 
-
-torch.multiprocessing.set_sharing_strategy('file_system') # To not hit file descriptor memory limit
-rltorch.set_seed(config['seed'])
-print("Setting up environment...", end = " ")
-env = E.FrameStack(E.TorchWrap(
+  # Setting up the environment
+  rltorch.set_seed(config['seed'])
+  print("Setting up environment...", end = " ")
+  env = E.FrameStack(E.TorchWrap(
     E.ProcessFrame(E.FireResetEnv(gym.make(config['environment_name'])), 
-        resize_shape = (80, 80), crop_bounds = [34, 194, 15, 145], grayscale = True))
-, 4)
-env.seed(config['seed'])
-print("Done.")
+      resize_shape = (80, 80), crop_bounds = [34, 194, 15, 145], grayscale = True))
+  , 4)
+  env.seed(config['seed'])
+  print("Done.")
+      
+  state_size = env.observation_space.shape[0]
+  action_size = env.action_space.n
+
+  # Logging
+  logger = rltorch.log.Logger()
+  logwriter = rltorch.log.LogWriter(SummaryWriter())
+
+  # Setting up the networks
+  device = torch.device("cuda:0" if torch.cuda.is_available() and not config['disable_cuda'] else "cpu")
+  net = rn.Network(Value(state_size, action_size), 
+                      torch.optim.Adam, config, device = device, name = "DQN")
+  target_net = rn.TargetNetwork(net, device = device)
+  net.model.share_memory()
+  target_net.model.share_memory()
+
+  # Actor takes a net and uses it to produce actions from given states
+  actor = ArgMaxSelector(net, action_size, device = device)
+  # Memory stores experiences for later training
+  memory = M.PrioritizedReplayMemory(capacity = config['memory_size'], alpha = config['prioritized_replay_sampling_priority'])
+  # memory = M.ReplayMemory(capacity = config['memory_size'])
+
+  # Runner performs a certain number of steps in the environment
+  runner = rltorch.mp.EnvironmentRun(env, actor, config, name = "Training", memory = memory, logwriter = logwriter)
+
+  # Agent is what performs the training
+  agent = rltorch.agents.DQNAgent(net, memory, config, target_net = target_net, logger = logger)
     
-state_size = env.observation_space.shape[0]
-action_size = env.action_space.n
+  print("Training...")
 
-# Logging
-logger = rltorch.log.Logger()
-logwriter = rltorch.log.LogWriter(logger, SummaryWriter())
+  train(runner, agent, config, logger = logger, logwriter = logwriter) 
 
-# Setting up the networks
-device = torch.device("cuda:0" if torch.cuda.is_available() and not config['disable_cuda'] else "cpu")
-net = rn.Network(Value(state_size, action_size), 
-                    torch.optim.Adam, config, device = device, logger = logger, name = "DQN")
-target_net = rn.TargetNetwork(net, device = device)
-net.model.share_memory()
-target_net.model.share_memory()
+  # For profiling...
+  # import cProfile
+  # cProfile.run('train(runner, agent, config, logger = logger, logwriter = logwriter )')
+  # python -m torch.utils.bottleneck /path/to/source/script.py [args] is also a good solution...
 
-# Actor takes a network and uses it to produce actions from given states
-actor = ArgMaxSelector(net, action_size, device = device)
-# Memory stores experiences for later training
-memory = M.PrioritizedReplayMemory(capacity = config['memory_size'], alpha = config['prioritized_replay_sampling_priority'])
+  print("Training Finished.")
+  runner.terminate() # We don't need the extra process anymore
 
-# Runner performs a certain number of steps in the environment
-runner = rltorch.mp.EnvironmentRun(env, actor, config, logger = logger, name = "Training")
-runner.start()
+  print("Evaluating...")
+  rltorch.env.simulateEnvEps(env, actor, config, total_episodes = config['total_evaluation_episodes'], logger = logger, name = "Evaluation")
+  print("Evaulations Done.")
 
-# Agent is what performs the training
-agent = rltorch.agents.DQNAgent(net, memory, config, target_net = target_net, logger = logger)
-   
-print("Training...")
-train(runner, agent, config, logwriter = logwriter, memory = memory) 
-
-# For profiling...
-# import cProfile
-# cProfile.run('train(runner, agent, config, logwriter = logwriter )')
-# python -m torch.utils.bottleneck /path/to/source/script.py [args] is also a good solution...
-
-print("Training Finished.")
-runner.terminate() # We don't need the extra process anymore
-
-print("Evaluating...")
-rltorch.env.simulateEnvEps(env, actor, config, total_episodes = config['total_evaluation_episodes'], logger = logger, name = "Evaluation")
-print("Evaulations Done.")
-
-logwriter.close() # We don't need to write anything out to disk anymore
+  logwriter.close() # We don't need to write anything out to disk anymore

@@ -13,7 +13,7 @@ class DQNAgent:
         self.config = deepcopy(config)
         self.logger = logger
 
-    def learn(self):
+    def learn(self, logger = None):
         if len(self.memory) < self.config['batch_size']:
             return
         

@@ -246,7 +246,8 @@ class PrioritizedReplayMemory(ReplayMemory):
         assert len(idxes) == len(priorities)
         priorities += np.finfo('float').eps
         for idx, priority in zip(idxes, priorities):
-            assert priority > 0
+            if priority < 0:
+                priority = np.finfo('float').eps
             assert 0 <= idx < len(self.memory)
             self._it_sum[idx] = priority ** self._alpha
             self._it_min[idx] = priority ** self._alpha

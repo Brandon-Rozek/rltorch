@@ -16,7 +16,7 @@ class Network:
 
     def __call__(self, *args):
         return self.model(*args)
-        
+
     def clamp_gradients(self, x = 1):
         assert x > 0
         for param in self.model.parameters():
