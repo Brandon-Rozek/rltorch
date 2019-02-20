@@ -10,8 +10,6 @@ class StochasticSelector(ArgMaxSelector):
         self.model = model
         self.action_size = action_size
         self.device = device
-        if not isinstance(memory, rltorch.memory.EpisodeMemory):
-            raise ValueError("Memory must be of instance EpisodeMemory")
         self.memory = memory
     def best_act(self, state, log_prob = True):
         if self.device is not None:
@@ -19,6 +17,6 @@ class StochasticSelector(ArgMaxSelector):
         action_probabilities = self.model(state)
         distribution = Categorical(action_probabilities)
         action = distribution.sample()
-        if log_prob:
+        if log_prob and isinstance(self.memory, rltorch.memory.EpisodeMemory):
             self.memory.append_log_probs(distribution.log_prob(action))
         return action.item()

@@ -34,27 +34,29 @@ class DQNAgent:
         next_state_batch = next_state_batch.to(self.net.device)
         not_done_batch = not_done_batch.to(self.net.device)
 
-        obtained_values = self.net(state_batch).gather(1, action_batch.view(self.config['batch_size'], 1))
+        state_values = self.net(state_batch)
+        obtained_values = state_values.gather(1, action_batch.view(self.config['batch_size'], 1))
 
         with torch.no_grad():
             # Use the target net to produce action values for the next state
             # and the regular net to select the action
             # That way we decouple the value and action selecting processes (DOUBLE DQN)
             not_done_size = not_done_batch.sum()
+            next_state_values = torch.zeros_like(state_values, device = self.net.device)
             if self.target_net is not None:
-                next_state_values = self.target_net(next_state_batch)
-                next_best_action = self.net(next_state_batch).argmax(1)
+                next_state_values[not_done_batch] = self.target_net(next_state_batch[not_done_batch])
+                next_best_action = self.net(next_state_batch[not_done_batch]).argmax(1)
             else:
-                next_state_values = self.net(next_state_batch)
-                next_best_action = next_state_values.argmax(1)
+                next_state_values[not_done_batch] = self.net(next_state_batch[not_done_batch])
+                next_best_action = next_state_values[not_done_batch].argmax(1)
 
             best_next_state_value = torch.zeros(self.config['batch_size'], device = self.net.device)
-            best_next_state_value[not_done_batch] = next_state_values.gather(1, next_best_action.view((not_done_size, 1))).squeeze(1)
+            best_next_state_value[not_done_batch] = next_state_values[not_done_batch].gather(1, next_best_action.view((not_done_size, 1))).squeeze(1)
             
         expected_values = (reward_batch + (self.config['discount_rate'] * best_next_state_value)).unsqueeze(1)
 
         if (isinstance(self.memory, M.PrioritizedReplayMemory)):
-            loss = (torch.as_tensor(importance_weights, device = self.net.device) * (obtained_values - expected_values)**2).mean()
+            loss = (torch.as_tensor(importance_weights, device = self.net.device) * ((obtained_values - expected_values)**2).squeeze(1)).mean()
         else:
             loss = F.mse_loss(obtained_values, expected_values)
         

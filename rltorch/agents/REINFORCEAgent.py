@@ -31,7 +31,7 @@ class REINFORCEAgent:
     discount_reward_batch = self._discount_rewards(torch.tensor(reward_batch))
     log_prob_batch = torch.cat(log_prob_batch)
 
-    policy_loss = (-1 * log_prob_batch * discount_reward_batch).sum()
+    policy_loss = (-log_prob_batch * discount_reward_batch).sum()
     
     if self.logger is not None:
             self.logger.append("Loss", policy_loss.item())

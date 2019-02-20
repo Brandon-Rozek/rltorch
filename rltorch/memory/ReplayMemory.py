@@ -67,7 +67,7 @@ def zip_batch(minibatch, priority = False):
     action_batch = torch.tensor(action_batch)
     reward_batch = torch.tensor(reward_batch)
     not_done_batch = ~torch.tensor(done_batch)
-    next_state_batch = torch.cat(next_state_batch)[not_done_batch]
+    next_state_batch = torch.cat(next_state_batch)
 
     if priority:
         return state_batch, action_batch, reward_batch, next_state_batch, not_done_batch, weights, indexes
