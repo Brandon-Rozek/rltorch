@@ -14,32 +14,64 @@ import signal
 from copy import deepcopy
 
 class Value(nn.Module):
-  def __init__(self, state_size, action_size):
+  def __init__(self, state_size):
     super(Value, self).__init__()
+    self.state_size = state_size
+
+    self.fc1 = rn.NoisyLinear(state_size, 64)
+    self.fc_norm = nn.LayerNorm(64)
+
+    self.fc2 = rn.NoisyLinear(64, 64)
+    self.fc2_norm = nn.LayerNorm(64)
+
+    self.fc3 = rn.NoisyLinear(64, 1)
+
+  def forward(self, x):
+    x = F.relu(self.fc_norm(self.fc1(x)))
+
+    x = F.relu(self.fc2_norm(self.fc2(x)))
+
+    x = self.fc3(x)
+    
+    return x
+
+class Policy(nn.Module):
+  def __init__(self, state_size, action_size):
+    super(Policy, self).__init__()
     self.state_size = state_size
     self.action_size = action_size
 
     self.fc1 = rn.NoisyLinear(state_size, 64)
     self.fc_norm = nn.LayerNorm(64)
+
+    self.fc2 = rn.NoisyLinear(64, 64)
+    self.fc2_norm = nn.LayerNorm(64)
+
+    self.fc3 = rn.NoisyLinear(64, action_size)
+    # self.fc3_norm = nn.LayerNorm(action_size)
     
-    self.value_fc = rn.NoisyLinear(64, 64)
-    self.value_fc_norm = nn.LayerNorm(64)
-    self.value = rn.NoisyLinear(64, 1)
+    # self.value_fc = rn.NoisyLinear(64, 64)
+    # self.value_fc_norm = nn.LayerNorm(64)
+    # self.value = rn.NoisyLinear(64, 1)
     
-    self.advantage_fc = rn.NoisyLinear(64, 64)
-    self.advantage_fc_norm = nn.LayerNorm(64)
-    self.advantage = rn.NoisyLinear(64, action_size)
+    # self.advantage_fc = rn.NoisyLinear(64, 64)
+    # self.advantage_fc_norm = nn.LayerNorm(64)
+    # self.advantage = rn.NoisyLinear(64, action_size)
 
   def forward(self, x):
     x = F.relu(self.fc_norm(self.fc1(x)))
+
+    x = F.relu(self.fc2_norm(self.fc2(x)))
+
+    x = F.softmax(self.fc3(x), dim = 1)
     
-    state_value = F.relu(self.value_fc_norm(self.value_fc(x)))
-    state_value = self.value(state_value)
+    # state_value = F.relu(self.value_fc_norm(self.value_fc(x)))
+    # state_value = self.value(state_value)
     
-    advantage = F.relu(self.advantage_fc_norm(self.advantage_fc(x)))
-    advantage = self.advantage(advantage)
+    # advantage = F.relu(self.advantage_fc_norm(self.advantage_fc(x)))
+    # advantage = self.advantage(advantage)
     
-    x = F.softmax(state_value + advantage - advantage.mean(), dim = 1)
+    # x = F.softmax(state_value + advantage - advantage.mean(), dim = 1)
     
     return x
 
@@ -59,20 +91,20 @@ config['replay_skip'] = 0
 config['print_stat_n_eps'] = 1
 config['disable_cuda'] = False
 
-def train(env, agent, actor, memory, config, logger = None, logwriter = None):
+
+def train(runner, agent, config, logger = None, logwriter = None):
     finished = False
-    episode_num = 1
+    last_episode_num = 1
     while not finished:
-        rltorch.env.simulateEnvEps(env, actor, config, memory = memory, logger = logger, name = "Training")
-        episode_num += 1
+        runner.run(config['replay_skip'] + 1)
         agent.learn()
-        # When the episode number changes, log network paramters
         if logwriter is not None:
-          agent.net.log_named_parameters()
+          if last_episode_num < runner.episode_num:
+            last_episode_num = runner.episode_num
+            agent.value_net.log_named_parameters()
+            agent.policy_net.log_named_parameters()
           logwriter.write(logger)
-        finished = episode_num > config['total_training_episodes']
-
-
+        finished = runner.episode_num > config['total_training_episodes']
 
 if __name__ == "__main__":
   torch.multiprocessing.set_sharing_strategy('file_system') # To not hit file descriptor memory limit
@@ -93,24 +125,27 @@ if __name__ == "__main__":
 
   # Setting up the networks
   device = torch.device("cuda:0" if torch.cuda.is_available() and not config['disable_cuda'] else "cpu")
-  net = rn.Network(Value(state_size, action_size), 
+  policy_net = rn.Network(Policy(state_size, action_size), 
+                      torch.optim.Adam, config, device = device, name = "Policy")
+  value_net = rn.Network(Value(state_size), 
                       torch.optim.Adam, config, device = device, name = "DQN")
-  target_net = rn.TargetNetwork(net, device = device)
-  net.model.share_memory()
-  target_net.model.share_memory()
+
 
   # Memory stores experiences for later training
   memory = M.EpisodeMemory()
 
   # Actor takes a net and uses it to produce actions from given states
-  actor = StochasticSelector(net, action_size, memory, device = device)
+  actor = StochasticSelector(policy_net, action_size, memory, device = device)
 
   # Agent is what performs the training
-  agent = rltorch.agents.REINFORCEAgent(net, memory, config, target_net = target_net, logger = logger)
+  # agent = rltorch.agents.REINFORCEAgent(net, memory, config, target_net = target_net, logger = logger)
+  agent = rltorch.agents.PPOAgent(policy_net, value_net, memory, config, logger = logger)
+
+  # Runner performs a certain number of steps in the environment
+  runner = rltorch.env.EnvironmentRunSync(env, actor, config, name = "Training", memory = memory, logwriter = logwriter)
     
   print("Training...")
-
-  train(env, agent, actor, memory, config, logger = logger, logwriter = logwriter) 
+  train(runner, agent, config, logger = logger, logwriter = logwriter) 
 
   # For profiling...
   # import cProfile

@@ -5,7 +5,7 @@ import rltorch
 from rltorch.action_selector import ArgMaxSelector
 
 class StochasticSelector(ArgMaxSelector):
-    def __init__(self, model, action_size, memory, device = None):
+    def __init__(self, model, action_size, memory = None, device = None):
         super(StochasticSelector, self).__init__(model, action_size, device = device)
         self.model = model
         self.action_size = action_size

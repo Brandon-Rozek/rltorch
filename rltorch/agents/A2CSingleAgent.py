@@ -1,5 +1,3 @@
-# Deprecated since the idea of the idea shouldn't work without having some sort of "mental model" of the environment
-
 from copy import deepcopy
 import numpy as np
 import torch
