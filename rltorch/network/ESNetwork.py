@@ -28,7 +28,7 @@ class ESNetwork(Network):
         white_noise_dict = {}
         noise_dict = {}
         for key in model_dict.keys():
-            white_noise_dict[key] = torch.randn(self.population_size, *model_dict[key].shape)
+            white_noise_dict[key] = torch.randn(self.population_size, *model_dict[key].shape, device = self.device)
             noise_dict[key] = self.sigma * white_noise_dict[key]
         return white_noise_dict, noise_dict
 
