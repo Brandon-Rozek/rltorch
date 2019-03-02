@@ -63,3 +63,39 @@ class EnvironmentRunSync():
       self.logwriter.write(logger)
     
     self.last_state = state
+
+
+class EnvironmentEpisodeSync():
+  def __init__(self, env, actor, config, memory = None, logwriter = None, name = ""):
+    self.env = env
+    self.name = name
+    self.actor = actor
+    self.config = deepcopy(config)
+    self.logwriter = logwriter
+    self.memory = memory
+    self.episode_num = 1
+
+  def run(self):
+    state = self.env.reset()
+    done = False
+    episodeReward = 0
+    logger = rltorch.log.Logger() if self.logwriter is not None else None
+    while not done:
+      action = self.actor.act(state)
+      next_state, reward, done, _ = self.env.step(action)
+       
+      episodeReward += reward
+      if self.memory is not None:
+        self.memory.append(state, action, reward, next_state, done)
+       
+      state = next_state
+
+    if self.episode_num % self.config['print_stat_n_eps'] == 0:
+      print("episode: {}/{}, score: {}"
+        .format(self.episode_num, self.config['total_training_episodes'], episodeReward))
+          
+    if self.logwriter is not None:
+      logger.append(self.name + '/EpisodeReward', episodeReward)
+      self.logwriter.write(logger)
+    
+    self.episode_num +=  1

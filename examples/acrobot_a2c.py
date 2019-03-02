@@ -94,15 +94,12 @@ config['disable_cuda'] = False
 
 def train(runner, agent, config, logger = None, logwriter = None):
     finished = False
-    last_episode_num = 1
     while not finished:
-        runner.run(config['replay_skip'] + 1)
+        runner.run()
         agent.learn()
         if logwriter is not None:
-          if last_episode_num < runner.episode_num:
-            last_episode_num = runner.episode_num
-            agent.value_net.log_named_parameters()
-            agent.policy_net.log_named_parameters()
+          agent.value_net.log_named_parameters()
+          agent.policy_net.log_named_parameters()
           logwriter.write(logger)
         finished = runner.episode_num > config['total_training_episodes']
 
@@ -141,8 +138,8 @@ if __name__ == "__main__":
   # agent = rltorch.agents.REINFORCEAgent(net, memory, config, target_net = target_net, logger = logger)
   agent = rltorch.agents.A2CSingleAgent(policy_net, value_net, memory, config, logger = logger)
 
-  # Runner performs a certain number of steps in the environment
-  runner = rltorch.env.EnvironmentRunSync(env, actor, config, name = "Training", memory = memory, logwriter = logwriter)
+  # Runner performs one episode in the environment
+  runner = rltorch.env.EnvironmentEpisodeSync(env, actor, config, name = "Training", memory = memory, logwriter = logwriter)
     
   print("Training...")
   train(runner, agent, config, logger = logger, logwriter = logwriter) 

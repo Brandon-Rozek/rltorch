@@ -94,21 +94,16 @@ config['disable_cuda'] = False
 
 def train(runner, agent, config, logger = None, logwriter = None):
     finished = False
-    last_episode_num = 1
     while not finished:
-        runner.run(config['replay_skip'] + 1)
+        runner.run()
         agent.learn()
         if logwriter is not None:
-          if last_episode_num < runner.episode_num:
-            last_episode_num = runner.episode_num
-            agent.value_net.log_named_parameters()
-            agent.policy_net.log_named_parameters()
+          agent.value_net.log_named_parameters()
+          agent.policy_net.log_named_parameters()
           logwriter.write(logger)
         finished = runner.episode_num > config['total_training_episodes']
 
 if __name__ == "__main__":
-  torch.multiprocessing.set_sharing_strategy('file_system') # To not hit file descriptor memory limit
-
   # Setting up the environment
   rltorch.set_seed(config['seed'])
   print("Setting up environment...", end = " ")
@@ -142,7 +137,7 @@ if __name__ == "__main__":
   agent = rltorch.agents.PPOAgent(policy_net, value_net, memory, config, logger = logger)
 
   # Runner performs a certain number of steps in the environment
-  runner = rltorch.env.EnvironmentRunSync(env, actor, config, name = "Training", memory = memory, logwriter = logwriter)
+  runner = rltorch.env.EnvironmentEpisodeSync(env, actor, config, name = "Training", memory = memory, logwriter = logwriter)
     
   print("Training...")
   train(runner, agent, config, logger = logger, logwriter = logwriter) 

@@ -27,9 +27,6 @@ class A2CSingleAgent:
   
   
   def learn(self):
-    if len(self.memory) < self.config['batch_size']:
-      return
-
     episode_batch = self.memory.recall()
     state_batch, action_batch, reward_batch, next_state_batch, done_batch, log_prob_batch = zip(*episode_batch)  
 
@@ -40,7 +37,7 @@ class A2CSingleAgent:
     log_prob_batch = torch.cat(log_prob_batch).to(self.value_net.device)
 
     ## Value Loss
-    value_loss = F.mse_loss(self._discount_rewards(reward_batch), self.value_net(state_batch[0]))
+    value_loss = F.mse_loss(self._discount_rewards(reward_batch).sum(), self.value_net(state_batch[0]))
     self.value_net.zero_grad()
     value_loss.backward()
     self.value_net.step()
