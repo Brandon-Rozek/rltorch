@@ -1,5 +1,4 @@
 import gym
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -9,10 +8,10 @@ import rltorch.memory as M
 import rltorch.env as E
 from rltorch.action_selector import StochasticSelector
 from tensorboardX import SummaryWriter
-import torch.multiprocessing as mp
-import signal
-from copy import deepcopy
 
+#
+## Networks
+#
 class Value(nn.Module):
   def __init__(self, state_size):
     super(Value, self).__init__()
@@ -28,11 +27,8 @@ class Value(nn.Module):
 
   def forward(self, x):
     x = F.relu(self.fc_norm(self.fc1(x)))
-
     x = F.relu(self.fc2_norm(self.fc2(x)))
-
     x = self.fc3(x)
-    
     return x
 
 class Policy(nn.Module):
@@ -48,50 +44,30 @@ class Policy(nn.Module):
     self.fc2_norm = nn.LayerNorm(64)
 
     self.fc3 = rn.NoisyLinear(64, action_size)
-    # self.fc3_norm = nn.LayerNorm(action_size)
-    
-    # self.value_fc = rn.NoisyLinear(64, 64)
-    # self.value_fc_norm = nn.LayerNorm(64)
-    # self.value = rn.NoisyLinear(64, 1)
-    
-    # self.advantage_fc = rn.NoisyLinear(64, 64)
-    # self.advantage_fc_norm = nn.LayerNorm(64)
-    # self.advantage = rn.NoisyLinear(64, action_size)
 
   def forward(self, x):
     x = F.relu(self.fc_norm(self.fc1(x)))
-
     x = F.relu(self.fc2_norm(self.fc2(x)))
-
     x = F.softmax(self.fc3(x), dim = 1)
-    
-    # state_value = F.relu(self.value_fc_norm(self.value_fc(x)))
-    # state_value = self.value(state_value)
-    
-    # advantage = F.relu(self.advantage_fc_norm(self.advantage_fc(x)))
-    # advantage = self.advantage(advantage)
-    
-    # x = F.softmax(state_value + advantage - advantage.mean(), dim = 1)
-    
     return x
 
-
+#
+## Configuration
+#
 config = {}
 config['seed'] = 901
 config['environment_name'] = 'Acrobot-v1'
-config['memory_size'] = 2000
 config['total_training_episodes'] = 500
 config['total_evaluation_episodes'] = 10
-config['batch_size'] = 32
 config['learning_rate'] = 1e-3
-config['target_sync_tau'] = 1e-1
 config['discount_rate'] = 0.99
-config['replay_skip'] = 0
 # How many episodes between printing out the episode stats
 config['print_stat_n_eps'] = 1
 config['disable_cuda'] = False
 
-
+#
+## Training Loop
+#
 def train(runner, agent, config, logger = None, logwriter = None):
     finished = False
     while not finished:
@@ -133,7 +109,6 @@ if __name__ == "__main__":
   actor = StochasticSelector(policy_net, action_size, memory, device = device)
 
   # Agent is what performs the training
-  # agent = rltorch.agents.REINFORCEAgent(net, memory, config, target_net = target_net, logger = logger)
   agent = rltorch.agents.PPOAgent(policy_net, value_net, memory, config, logger = logger)
 
   # Runner performs a certain number of steps in the environment

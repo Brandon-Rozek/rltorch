@@ -3,7 +3,8 @@ import torch
 from .Network import Network
 from copy import deepcopy
 
-# [TODO] See if you need to move network to device
+# [TODO] Should we torch.no_grad the __call__?
+# What if we want to sometimes do gradient descent as well?
 class ESNetwork(Network):
     """
     Network that functions from the paper Evolutionary Strategies (https://arxiv.org/abs/1703.03864)

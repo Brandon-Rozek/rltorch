@@ -55,6 +55,7 @@ class DQNAgent:
             
         expected_values = (reward_batch + (self.config['discount_rate'] * best_next_state_value)).unsqueeze(1)
 
+        # If we're sampling by TD error, multiply loss by a importance weight which helps decrease overfitting
         if (isinstance(self.memory, M.PrioritizedReplayMemory)):
             loss = (torch.as_tensor(importance_weights, device = self.net.device) * ((obtained_values - expected_values)**2).squeeze(1)).mean()
         else:
@@ -74,6 +75,7 @@ class DQNAgent:
             else:
                 self.target_net.sync()
 
+        # If we're sampling by TD error, readjust the weights of the experiences
         if (isinstance(self.memory, M.PrioritizedReplayMemory)):
             td_error = (obtained_values - expected_values).detach().abs()
             self.memory.update_priorities(batch_indexes, td_error)

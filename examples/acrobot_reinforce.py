@@ -1,5 +1,4 @@
 import gym
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -9,69 +8,57 @@ import rltorch.memory as M
 import rltorch.env as E
 from rltorch.action_selector import StochasticSelector
 from tensorboardX import SummaryWriter
-import torch.multiprocessing as mp
-import signal
-from copy import deepcopy
 
-class Value(nn.Module):
+#
+## Networks
+#
+class Policy(nn.Module):
   def __init__(self, state_size, action_size):
-    super(Value, self).__init__()
+    super(Policy, self).__init__()
     self.state_size = state_size
     self.action_size = action_size
 
     self.fc1 = rn.NoisyLinear(state_size, 64)
     self.fc_norm = nn.LayerNorm(64)
-    
-    self.value_fc = rn.NoisyLinear(64, 64)
-    self.value_fc_norm = nn.LayerNorm(64)
-    self.value = rn.NoisyLinear(64, 1)
-    
-    self.advantage_fc = rn.NoisyLinear(64, 64)
-    self.advantage_fc_norm = nn.LayerNorm(64)
-    self.advantage = rn.NoisyLinear(64, action_size)
+
+    self.fc2 = rn.NoisyLinear(64, 64)
+    self.fc2_norm = nn.LayerNorm(64)
+
+    self.fc3 = rn.NoisyLinear(64, action_size)
 
   def forward(self, x):
     x = F.relu(self.fc_norm(self.fc1(x)))
-    
-    state_value = F.relu(self.value_fc_norm(self.value_fc(x)))
-    state_value = self.value(state_value)
-    
-    advantage = F.relu(self.advantage_fc_norm(self.advantage_fc(x)))
-    advantage = self.advantage(advantage)
-    
-    x = F.softmax(state_value + advantage - advantage.mean(), dim = 1)
-    
+    x = F.relu(self.fc2_norm(self.fc2(x)))
+    x = F.softmax(self.fc3(x), dim = 1)
     return x
 
-
+#
+## Configuration
+#
 config = {}
 config['seed'] = 901
 config['environment_name'] = 'Acrobot-v1'
-config['memory_size'] = 2000
 config['total_training_episodes'] = 500
 config['total_evaluation_episodes'] = 10
-config['batch_size'] = 32
 config['learning_rate'] = 1e-3
-config['target_sync_tau'] = 1e-1
 config['discount_rate'] = 0.99
-config['replay_skip'] = 0
 # How many episodes between printing out the episode stats
 config['print_stat_n_eps'] = 1
 config['disable_cuda'] = False
 
-def train(env, agent, actor, memory, config, logger = None, logwriter = None):
-    finished = False
-    episode_num = 1
-    while not finished:
-        rltorch.env.simulateEnvEps(env, actor, config, memory = memory, logger = logger, name = "Training")
-        episode_num += 1
-        agent.learn()
-        # When the episode number changes, log network paramters
-        if logwriter is not None:
-          agent.net.log_named_parameters()
-          logwriter.write(logger)
-        finished = episode_num > config['total_training_episodes']
-
+#
+## Training Loop
+#
+def train(runner, agent, config, logger = None, logwriter = None):
+  finished = False
+  while not finished:
+    runner.run()
+    agent.learn()
+    # When the episode number changes, log network paramters
+    if logwriter is not None:
+      agent.net.log_named_parameters()
+      logwriter.write(logger)
+    finished = runner.episode_num > config['total_training_episodes']
 
 
 if __name__ == "__main__":
@@ -93,11 +80,9 @@ if __name__ == "__main__":
 
   # Setting up the networks
   device = torch.device("cuda:0" if torch.cuda.is_available() and not config['disable_cuda'] else "cpu")
-  net = rn.Network(Value(state_size, action_size), 
+  net = rn.Network(Policy(state_size, action_size), 
                       torch.optim.Adam, config, device = device, name = "DQN")
   target_net = rn.TargetNetwork(net, device = device)
-  net.model.share_memory()
-  target_net.model.share_memory()
 
   # Memory stores experiences for later training
   memory = M.EpisodeMemory()
@@ -108,9 +93,11 @@ if __name__ == "__main__":
   # Agent is what performs the training
   agent = rltorch.agents.REINFORCEAgent(net, memory, config, target_net = target_net, logger = logger)
     
-  print("Training...")
+  # Runner performs one episode in the environment
+  runner = rltorch.env.EnvironmentEpisodeSync(env, actor, config, name = "Training", memory = memory, logwriter = logwriter)
 
-  train(env, agent, actor, memory, config, logger = logger, logwriter = logwriter) 
+  print("Training...")
+  train(runner, agent, config, logger = logger, logwriter = logwriter) 
 
   # For profiling...
   # import cProfile
