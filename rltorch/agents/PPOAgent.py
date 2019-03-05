@@ -18,13 +18,8 @@ class PPOAgent:
     self.logger = logger
 
   def _discount_rewards(self, rewards):
-    discounted_rewards = torch.zeros_like(rewards)
-    running_add = 0
-    for t in reversed(range(len(rewards))):
-      running_add = running_add * self.config['discount_rate'] + rewards[t]
-      discounted_rewards[t] = running_add
-
-    return discounted_rewards
+    gammas = torch.cumprod(torch.tensor(self.config['discount_rate']).repeat(len(rewards)), dim = 0)
+    return gammas * rewards
   
   
   def learn(self):
