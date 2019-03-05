@@ -18,7 +18,9 @@ class PPOAgent:
     self.logger = logger
 
   def _discount_rewards(self, rewards):
-    gammas = torch.cumprod(torch.tensor(self.config['discount_rate']).repeat(len(rewards)), dim = 0)
+    gammas = torch.ones_like(rewards)
+    if len(rewards) > 1:
+      gammas[1:] = torch.cumprod(torch.tensor(self.config['discount_rate']).repeat(len(rewards) - 1), dim = 0)
     return gammas * rewards
   
   

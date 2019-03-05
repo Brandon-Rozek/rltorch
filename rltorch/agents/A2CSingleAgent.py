@@ -14,9 +14,11 @@ class A2CSingleAgent:
     self.logger = logger
 
   def _discount_rewards(self, rewards):
-    gammas = torch.cumprod(torch.tensor(self.config['discount_rate']).repeat(len(rewards)), dim = 0)
+    gammas = torch.ones_like(rewards)
+    if len(rewards) > 1:
+      gammas[1:] = torch.cumprod(torch.tensor(self.config['discount_rate']).repeat(len(rewards) - 1), dim = 0)
     return gammas * rewards
-
+  
   # This function is currently not used since the performance gains hasn't been shown
   # May be due to a faulty implementation, need to investigate more..
   def _generalized_advantage_estimation(self, states, rewards, next_states, not_done):

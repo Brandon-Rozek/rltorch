@@ -21,7 +21,9 @@ class REINFORCEAgent:
     shaped_rewards = torch.zeros_like(rewards)
     baseline = rewards.mean()
     for i in range(len(rewards)):
-      gammas = torch.cumprod(torch.tensor(self.config['discount_rate']).repeat(len(rewards) - i), dim = 0)
+      gammas = torch.ones_like(rewards[i:])
+      if i != len(rewards) - 1:
+        gammas[1:] = torch.cumprod(torch.tensor(self.config['discount_rate']).repeat(len(rewards) - i - 1), dim = 0)
       advantages = rewards[i:] - baseline
       shaped_rewards[i] = (gammas * advantages).sum()
     return shaped_rewards
