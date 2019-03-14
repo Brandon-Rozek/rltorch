@@ -30,7 +30,7 @@ class DQNAgent:
         # Send to their appropriate devices
         state_batch = state_batch.to(self.net.device)
         action_batch = action_batch.to(self.net.device)
-        reward_batch = reward_batch.to(self.net.device)
+        reward_batch = reward_batch.to(self.net.device).float()
         next_state_batch = next_state_batch.to(self.net.device)
         not_done_batch = not_done_batch.to(self.net.device)
 

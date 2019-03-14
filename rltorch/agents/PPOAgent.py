@@ -31,7 +31,7 @@ class PPOAgent:
     # Send batches to the appropriate device
     state_batch = torch.cat(state_batch).to(self.value_net.device)
     action_batch = torch.tensor(action_batch).to(self.value_net.device)
-    reward_batch = torch.tensor(reward_batch).to(self.value_net.device)
+    reward_batch = torch.tensor(reward_batch).to(self.value_net.device).float()
     not_done_batch = ~torch.tensor(done_batch).to(self.value_net.device)
     next_state_batch = torch.cat(next_state_batch).to(self.value_net.device)
     log_prob_batch = torch.cat(log_prob_batch).to(self.value_net.device)

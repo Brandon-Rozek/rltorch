@@ -59,7 +59,7 @@ class QEPAgent:
         # Send to their appropriate devices
         state_batch = state_batch.to(self.value_net.device)
         action_batch = action_batch.to(self.value_net.device)
-        reward_batch = reward_batch.to(self.value_net.device)
+        reward_batch = reward_batch.to(self.value_net.device).float()
         next_state_batch = next_state_batch.to(self.value_net.device)
         not_done_batch = not_done_batch.to(self.value_net.device)
 
@@ -82,7 +82,7 @@ class QEPAgent:
             best_next_state_value = torch.zeros(self.config['batch_size'], device = self.value_net.device)
             best_next_state_value[not_done_batch] = next_state_values[not_done_batch].gather(1, next_best_action.view((not_done_size, 1))).squeeze(1)
             
-        expected_values = (reward_batch.float() + (self.config['discount_rate'] * best_next_state_value)).unsqueeze(1)
+        expected_values = (reward_batch + (self.config['discount_rate'] * best_next_state_value)).unsqueeze(1)
 
         if (isinstance(self.memory, M.PrioritizedReplayMemory)):
             value_loss = (torch.as_tensor(importance_weights, device = self.value_net.device) * ((obtained_values - expected_values)**2).squeeze(1)).mean()
