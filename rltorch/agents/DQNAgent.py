@@ -4,6 +4,7 @@ import torch
 import torch.nn.functional as F
 from copy import deepcopy
 import numpy as np
+from pathlib import Path
 
 class DQNAgent:
     def __init__(self, net , memory, config, target_net = None, logger = None):
@@ -12,6 +13,12 @@ class DQNAgent:
         self.memory = memory
         self.config = deepcopy(config)
         self.logger = logger
+    def save(self, file_location):
+        torch.save(self.net.model.state_dict(), file_location)
+    def load(self, file_location):
+        self.net.model.state_dict(torch.load(file_location))
+        self.net.model.to(self.net.device)
+        self.target_net.sync()
 
     def learn(self, logger = None):
         if len(self.memory) < self.config['batch_size']:
@@ -57,8 +64,10 @@ class DQNAgent:
 
         # If we're sampling by TD error, multiply loss by a importance weight which helps decrease overfitting
         if (isinstance(self.memory, M.PrioritizedReplayMemory)):
-            loss = (torch.as_tensor(importance_weights, device = self.net.device) * ((obtained_values - expected_values)**2).squeeze(1)).mean()
+            # loss = (torch.as_tensor(importance_weights, device = self.net.device) * F.smooth_l1_loss(obtained_values, expected_values, reduction = 'none').squeeze(1)).mean()
+             loss = (torch.as_tensor(importance_weights, device = self.net.device) * ((obtained_values - expected_values)**2).squeeze(1)).mean()
         else:
+            # loss = F.smooth_l1_loss(obtained_values, expected_values)
             loss = F.mse_loss(obtained_values, expected_values)
         
         if self.logger is not None:
