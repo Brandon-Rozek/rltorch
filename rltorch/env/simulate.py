@@ -17,7 +17,7 @@ def simulateEnvEps(env, actor, config, total_episodes = 1, memory = None, logger
 
     if episode % config['print_stat_n_eps'] == 0:
       print("episode: {}/{}, score: {}"
-        .format(episode, total_episodes, episode_reward))
+        .format(episode, total_episodes, episode_reward), flush=True)
     
     if logger is not None:
       logger.append(name + '/EpisodeReward', episode_reward)
@@ -51,7 +51,7 @@ class EnvironmentRunSync():
       if done:
         if self.episode_num % self.config['print_stat_n_eps'] == 0:
           print("episode: {}/{}, score: {}"
-            .format(self.episode_num, self.config['total_training_episodes'], self.episode_reward))
+            .format(self.episode_num, self.config['total_training_episodes'], self.episode_reward), flush=True)
           
         if self.logwriter is not None:
           logger.append(self.name + '/EpisodeReward', self.episode_reward)
@@ -92,7 +92,7 @@ class EnvironmentEpisodeSync():
 
     if self.episode_num % self.config['print_stat_n_eps'] == 0:
       print("episode: {}/{}, score: {}"
-        .format(self.episode_num, self.config['total_training_episodes'], episodeReward))
+        .format(self.episode_num, self.config['total_training_episodes'], episodeReward), flush=True)
           
     if self.logwriter is not None:
       logger.append(self.name + '/EpisodeReward', episodeReward)

@@ -20,9 +20,21 @@ class QEPAgent:
         self.config = deepcopy(config)
         self.logger = logger
         self.policy_skip = 4
+    
+    def save(self, file_location):
+        torch.save({
+            'policy': self.policy_net.model.state_dict(),
+            'value': self.value_net.model.state_dict()
+            }, file_location)
+    def load(self, file_location):
+        checkpoint = torch.load(file_location)
+        self.value_net.model.state_dict(checkpoint['value'])
+        self.value_net.model.to(self.value_net.device)
+        self.policy_net.model.state_dict(checkpoint['policy'])
+        self.policy_net.model.to(self.policy_net.device)
+        self.target_net.sync()
 
     def fitness(self, policy_net, value_net, state_batch):
-        # print("Worker started")
         batch_size = len(state_batch)
         action_probabilities = policy_net(state_batch)
         action_size = action_probabilities.shape[1]
@@ -44,8 +56,8 @@ class QEPAgent:
         value_importance = 1 - entropy_importance
         
         # entropy_loss = (action_probabilities * torch.log2(action_probabilities)).sum(1) # Standard entropy loss from information theory
-        entropy_loss = (action_probabilities - torch.tensor(1 / action_size).repeat(len(state_batch), action_size)).abs().sum(1)
-        # print("END WORKER")
+        entropy_loss = (action_probabilities - torch.tensor(1 / action_size, device = state_batch.device).repeat(len(state_batch), action_size)).abs().sum(1)
+        
         return (entropy_importance * entropy_loss - value_importance * obtained_values).mean().item()
         
 
@@ -119,7 +131,6 @@ class QEPAgent:
           self.policy_skip -= 1
           return
         self.policy_skip = 4
-
         if self.target_value_net is not None:
           self.policy_net.calc_gradients(self.target_value_net, state_batch)
         else:
