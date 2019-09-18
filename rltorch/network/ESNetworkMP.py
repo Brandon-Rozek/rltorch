@@ -26,7 +26,8 @@ class ESNetworkMP(Network):
         self.fitness = fitness_fn
         self.sigma = sigma
         assert self.sigma > 0
-        self.pool = mp.Pool(processes=3) #[TODO] Probably should make number of processes a config variable
+        mp_ctx = mp.get_context("spawn")
+        self.pool = mp_ctx.Pool(processes=2) #[TODO] Probably should make number of processes a config variable
 
     # We're not going to be calculating gradients in the traditional way
     # So there's no need to waste computation time keeping track
