@@ -1,7 +1,8 @@
 from copy import deepcopy 
 import rltorch
+import time
 
-def simulateEnvEps(env, actor, config, total_episodes = 1, memory = None, logger = None, name = ""):
+def simulateEnvEps(env, actor, config, total_episodes = 1, memory = None, logger = None, name = "", render = False):
   for episode in range(total_episodes):
     state = env.reset()
     done = False
@@ -9,6 +10,9 @@ def simulateEnvEps(env, actor, config, total_episodes = 1, memory = None, logger
     while not done:
       action = actor.act(state)
       next_state, reward, done, _ = env.step(action)
+      if render:
+        env.render()
+        time.sleep(0.01)
 
       episode_reward = episode_reward + reward
       if memory is not None:
@@ -24,7 +28,7 @@ def simulateEnvEps(env, actor, config, total_episodes = 1, memory = None, logger
 
 
 class EnvironmentRunSync():
-  def __init__(self, env, actor, config, memory = None, logwriter = None, name = ""):
+  def __init__(self, env, actor, config, memory = None, logwriter = None, name = "", render = False):
     self.env = env
     self.name = name
     self.actor = actor
@@ -34,6 +38,7 @@ class EnvironmentRunSync():
     self.episode_num = 1
     self.episode_reward = 0
     self.last_state = env.reset()
+    self.render = render
 
   def run(self, iterations):
     state = self.last_state
@@ -41,6 +46,8 @@ class EnvironmentRunSync():
     for _ in range(iterations):
       action = self.actor.act(state)
       next_state, reward, done, _ = self.env.step(action)
+      if self.render:
+        self.env.render()
        
       self.episode_reward += reward
       if self.memory is not None:

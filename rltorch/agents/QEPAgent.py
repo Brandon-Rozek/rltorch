@@ -34,7 +34,8 @@ class QEPAgent:
         self.value_net.model.to(self.value_net.device)
         self.policy_net.model.state_dict(checkpoint['policy'])
         self.policy_net.model.to(self.policy_net.device)
-        self.target_net.sync()
+        if self.target_value_net is not None:
+            self.target_net.sync()
 
     def fitness(self, policy_net, value_net, state_batch):
         batch_size = len(state_batch)
