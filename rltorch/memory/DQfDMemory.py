@@ -1,4 +1,8 @@
-from .PrioritizedReplayMemory import PrioritizedReplayMemory, Transition
+from .PrioritizedReplayMemory import PrioritizedReplayMemory
+
+Transition = namedtuple('Transition',
+    ('state', 'action', 'reward', 'next_state', 'done'))
+
 
 class DQfDMemory(PrioritizedReplayMemory):
     def __init__(self, capacity, alpha):
