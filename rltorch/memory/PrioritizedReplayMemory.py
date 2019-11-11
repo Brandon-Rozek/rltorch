@@ -105,7 +105,7 @@ class SumSegmentTree(SegmentTree):
         """Returns arr[start] + ... + arr[end]"""
         return super(SumSegmentTree, self).reduce(start, end)
 
-    @jit(forceobj = True)
+    @jit(forceobj = True, parallel = True)
     def find_prefixsum_idx(self, prefixsum):
         """Find the highest index `i` in the array such that
             sum(arr[0] + arr[1] + ... + arr[i - i]) <= prefixsum
@@ -204,17 +204,6 @@ class PrioritizedReplayMemory(ReplayMemory):
             (0 - no corrections, 1 - full correction)
         Returns
         -------
-        obs_batch: np.array
-            batch of observations
-        act_batch: np.array
-            batch of actions executed given obs_batch
-        rew_batch: np.array
-            rewards received as results of executing act_batch
-        next_obs_batch: np.array
-            next set of observations seen after executing act_batch
-        done_mask: np.array
-            done_mask[i] = 1 if executing act_batch[i] resulted in
-            the end of an episode and 0 otherwise.
         weights: np.array
             Array of shape (batch_size,) and dtype np.float32
             denoting importance weight of each sampled transition
@@ -224,21 +213,55 @@ class PrioritizedReplayMemory(ReplayMemory):
         """
         assert beta > 0
 
+        # Sample indexes
         idxes = self._sample_proportional(batch_size)
 
+        # Calculate weights
         weights = []
         p_min = self._it_min.min() / self._it_sum.sum()
         max_weight = (p_min * len(self.memory)) ** (-beta)
-
         for idx in idxes:
             p_sample = self._it_sum[idx] / self._it_sum.sum()
             weight = (p_sample * len(self.memory)) ** (-beta)
             weights.append(weight / max_weight)
         weights = np.array(weights)
+
+        # Combine all data into a batch
         encoded_sample = tuple(zip(*self._encode_sample(idxes)))
         batch = list(zip(*encoded_sample, weights, idxes))
         return batch
 
+    def sample_n_steps(self, batch_size, steps, beta):
+        assert beta > 0
+
+        memory = self.memory
+        self.memory = self.memory[:-steps]
+        sample_size = batch_size // steps
+
+        # Sample indexes and get n-steps after that
+        idxes = self._sample_proportional(sample_size)
+        step_idxes = []
+        for i in idxes:
+            step_idxes += range(i, i + steps)
+
+        # Calculate appropriate weights
+        weights = []
+        p_min = self._it_min.min() / self._it_sum.sum()
+        max_weight = (p_min * len(self.memory)) ** (-beta)
+        for idx in step_idxes:
+            p_sample = self._it_sum[idx] / self._it_sum.sum()
+            weight = (p_sample * len(self.memory)) ** (-beta)
+            weights.append(weight / max_weight)
+        weights = np.array(weights)
+        
+        # Combine all the data together into a batch
+        encoded_sample = tuple(zip(*self._encode_sample(step_idxes)))
+        batch = list(zip(*encoded_sample, weights, idxes))
+        
+        # Restore memory and return batch
+        self.memory = memory
+        return batch
+    
     @jit(forceobj = True)
     def update_priorities(self, idxes, priorities):
         """Update priorities of sampled transitions.

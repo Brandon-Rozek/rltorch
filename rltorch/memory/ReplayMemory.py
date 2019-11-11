@@ -38,6 +38,13 @@ class ReplayMemory(object):
 
     def sample(self, batch_size):
         return random.sample(self.memory, batch_size)
+    
+    def sample_n_steps(self, batch_size, steps):
+        idxes = random.sample(range(len(self.memory) - steps), batch_size // steps)
+        step_idxes = []
+        for i in idxes:
+            step_idxes += range(i, i + steps)
+        return self._encode_sample(step_idxes)
 
     def __len__(self):
         return len(self.memory)
