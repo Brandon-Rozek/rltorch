@@ -234,32 +234,30 @@ class PrioritizedReplayMemory(ReplayMemory):
     def sample_n_steps(self, batch_size, steps, beta):
         assert beta > 0
 
-        memory = self.memory
-        self.memory = self.memory[:-steps]
         sample_size = batch_size // steps
-
+        
         # Sample indexes and get n-steps after that
         idxes = self._sample_proportional(sample_size)
         step_idxes = []
         for i in idxes:
-            step_idxes += range(i, i + steps)
+            if i > steps:
+                step_idxes += range(i - steps, i)
+            else:
+                step_idxes += range(i, i + steps)
 
-        # Calculate appropriate weights
+        # Calculate appropriate weights and assign it to the values of the same sequence
         weights = []
         p_min = self._it_min.min() / self._it_sum.sum()
         max_weight = (p_min * len(self.memory)) ** (-beta)
-        for idx in step_idxes:
+        for idx in idxes:
             p_sample = self._it_sum[idx] / self._it_sum.sum()
             weight = (p_sample * len(self.memory)) ** (-beta)
-            weights.append(weight / max_weight)
+            weights += [(weight / max_weight) for i in range(steps)]
         weights = np.array(weights)
         
         # Combine all the data together into a batch
         encoded_sample = tuple(zip(*self._encode_sample(step_idxes)))
-        batch = list(zip(*encoded_sample, weights, idxes))
-        
-        # Restore memory and return batch
-        self.memory = memory
+        batch = list(zip(*encoded_sample, weights, step_idxes))
         return batch
     
     @jit(forceobj = True)
