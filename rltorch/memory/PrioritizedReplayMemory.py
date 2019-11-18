@@ -249,10 +249,10 @@ class PrioritizedReplayMemory(ReplayMemory):
         weights = []
         p_min = self._it_min.min() / self._it_sum.sum()
         max_weight = (p_min * len(self.memory)) ** (-beta)
-        for idx in idxes:
+        for idx in step_idxes:
             p_sample = self._it_sum[idx] / self._it_sum.sum()
             weight = (p_sample * len(self.memory)) ** (-beta)
-            weights += [(weight / max_weight) for i in range(steps)]
+            weights.append(weight / max_weight)
         weights = np.array(weights)
         
         # Combine all the data together into a batch
