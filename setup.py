@@ -12,4 +12,11 @@ setuptools.setup(
     description="Reinforcement Learning Framework for PyTorch",
     version="0.1",
     packages=setuptools.find_packages(),
+    install_requires=[
+        "numpy~=1.16.0",
+        "opencv-python~=4.2.0.32",
+        "gym~=0.10.11",
+        "torch~=1.4.0",
+        "numba~=0.48.0"
+    ]
 )

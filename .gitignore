@@ -2,3 +2,9 @@ __pycache__/
 *.py[cod]
 rlenv/
 runs/
+*.tox
+*.coverage
+.vscode/
+docs/build
+.mypy_cache/
+*egg-info*
