@@ -10,8 +10,10 @@ class LinearScheduler(Scheduler):
     The forumula used to produce the value :math:`y` is based on the number of
     times you call `next`. (denoted as :math:`i`)
 
-    :math:`y(i) = slope \cdot (i - 1) + initial\_value`
-    where :math:`slope = \frac{end\_value - initial\_value)}{iterations}`.
+    :math:`y(1) = initial\_value`
+
+    :math:`y(i) = slope(i - 1) + y(1)`
+    where :math:`slope = \frac{end\_value - initial\_value}{iterations}`.
 
     Parameters
     ----------

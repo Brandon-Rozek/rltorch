@@ -11,8 +11,10 @@ class ExponentialScheduler(Scheduler):
     times you call `next`. (denoted as :math:`i`)
 
     :math:`y(1) = initial\_value`
+
+    :math:`base = \sqrt[iterations]{\frac{end\_value}{initial\_value}}`
+
     :math:`y(i) = y(1) \cdot base^{i - 1}`
-    :math:`base = \sqrt[iterations]{\frac{end\_value}{initial\_value}}`.
 
     Another property is that :math:`y(iterations) = end\_value`.
 
