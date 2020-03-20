@@ -4,21 +4,38 @@ import torch
 Transition = namedtuple('Transition',
     ('state', 'action', 'reward', 'next_state', 'done'))
 
-# Implements a Ring Buffer
 class ReplayMemory(object):
+    """
+    Creates a ring buffer of a fixed size.
+
+    Parameters
+    ----------
+    capacity : int
+      The maximum size of the buffer
+    """
     def __init__(self, capacity):
         self.capacity = capacity
         self.memory = []
         self.position = 0
 
     def append(self, *args):
-        """Saves a transition."""
+        """
+        Adds a transition to the buffer.
+
+        Parameters
+        ----------
+        *args
+          The state, action, reward, next_state, done tuple
+        """
         if len(self.memory) < self.capacity:
             self.memory.append(None)
         self.memory[self.position] = Transition(*args)
         self.position = (self.position + 1) % self.capacity
 
     def clear(self):
+        """
+        Clears the buffer.
+        """
         self.memory.clear()
         self.position = 0
 
@@ -37,10 +54,35 @@ class ReplayMemory(object):
 
 
     def sample(self, batch_size):
+        """
+        Returns a random sample from the buffer.
+
+        Parameters
+        ----------
+        batch_size : int
+          The number of observations to sample.
+        """
         return random.sample(self.memory, batch_size)
     
     def sample_n_steps(self, batch_size, steps):
-        idxes = random.sample(range(len(self.memory) - steps), batch_size // steps)
+        r"""
+        Returns a random sample of sequential batches of size steps.
+
+        Notes
+        -----
+        The number of batches sampled is :math:`\lfloor\frac{batch\_size}{steps}\rfloor`.
+
+        Parameters
+        ----------
+        batch_size : int
+          The total number of observations to sample.
+        steps : int
+          The number of observations after the one selected to sample.
+        """
+        idxes = random.sample(
+            range(len(self.memory) - steps), 
+            batch_size // steps
+        )
         step_idxes = []
         for i in idxes:
             step_idxes += range(i, i + steps)
@@ -56,10 +98,10 @@ class ReplayMemory(object):
         return value in self.memory
 
     def __getitem__(self, index):
-        return self.memory[index]
+        return self.memory[index % self.capacity]
 
     def __setitem__(self, index, value):
-        self.memory[index] = value
+        self.memory[index % self.capacity] = value
 
     def __reversed__(self):
         return reversed(self.memory)

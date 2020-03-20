@@ -147,7 +147,9 @@ class MinSegmentTree(SegmentTree):
 
 class PrioritizedReplayMemory(ReplayMemory):
     def __init__(self, capacity, alpha):
-        """Create Prioritized Replay buffer.
+        """
+        Create Prioritized Replay buffer.
+
         Parameters
         ----------
         capacity: int
@@ -156,9 +158,6 @@ class PrioritizedReplayMemory(ReplayMemory):
         alpha: float
             how much prioritization is used
             (0 - no prioritization, 1 - full prioritization)
-        See Also
-        --------
-        ReplayBuffer.__init__
         """
         super(PrioritizedReplayMemory, self).__init__(capacity)
         assert alpha >= 0
@@ -173,7 +172,14 @@ class PrioritizedReplayMemory(ReplayMemory):
         self._max_priority = 1.0
 
     def append(self, *args, **kwargs):
-        """See ReplayBuffer.store_effect"""
+        """
+        Adds a transition to the buffer and add an initial prioritization.
+
+        Parameters
+        ----------
+          *args
+             The state, action, reward, next_state, done tuple
+        """
         idx = self.position
         super().append(*args, **kwargs)
         self._it_sum[idx] = self._max_priority ** self._alpha
@@ -191,10 +197,11 @@ class PrioritizedReplayMemory(ReplayMemory):
         return res
 
     def sample(self, batch_size, beta):
-        """Sample a batch of experiences.
-        compared to ReplayBuffer.sample
-        it also returns importance weights and idxes
+        """
+        Sample a batch of experiences.
+        while returning importance weights and idxes
         of sampled experiences.
+
         Parameters
         ----------
         batch_size: int
@@ -202,6 +209,7 @@ class PrioritizedReplayMemory(ReplayMemory):
         beta: float
             To what degree to use importance weights
             (0 - no corrections, 1 - full correction)
+        
         Returns
         -------
         weights: np.array
@@ -232,6 +240,32 @@ class PrioritizedReplayMemory(ReplayMemory):
         return batch
 
     def sample_n_steps(self, batch_size, steps, beta):
+        r"""
+        Sample a batch of sequential experiences.
+        while returning importance weights and idxes
+        of sampled experiences.
+
+        Parameters
+        ----------
+        batch_size: int
+            How many transitions to sample.
+        beta: float
+            To what degree to use importance weights
+            (0 - no corrections, 1 - full correction)
+        
+        Notes
+        -----
+        The number of batches sampled is :math:`\lfloor\frac{batch\_size}{steps}\rfloor`.
+
+        Returns
+        -------
+        weights: np.array
+            Array of shape (batch_size,) and dtype np.float32
+            denoting importance weight of each sampled transition
+        idxes: np.array
+            Array of shape (batch_size,) and dtype np.int32
+            idexes in buffer of sampled experiences
+        """
         assert beta > 0
 
         sample_size = batch_size // steps
@@ -262,9 +296,11 @@ class PrioritizedReplayMemory(ReplayMemory):
     
     @jit(forceobj = True)
     def update_priorities(self, idxes, priorities):
-        """Update priorities of sampled transitions.
+        """
+        Update priorities of sampled transitions.
         sets priority of transition at index idxes[i] in buffer
         to priorities[i].
+        
         Parameters
         ----------
         idxes: [int]

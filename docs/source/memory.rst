@@ -1,4 +1,8 @@
 Memory Structures
 =================
-.. automodule:: rltorch.memory
+.. autoclass:: rltorch.memory.ReplayMemory
+   :members:
+.. autoclass:: rltorch.memory.PrioritizedReplayMemory
+   :members:
+.. autoclass:: rltorch.memory.EpisodeMemory
    :members:
