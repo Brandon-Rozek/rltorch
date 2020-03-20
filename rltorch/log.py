@@ -3,6 +3,13 @@ import numpy as np
 import torch
 
 class Logger:
+    """
+    Keeps track of lists of items seperated by tags.
+
+    Notes
+    -----
+    Logger is a dictionary of lists.
+    """
     def __init__(self):
         self.log = {}
     def append(self, tag, value):
@@ -26,26 +33,22 @@ class Logger:
     def __reversed__(self):
         return reversed(self.log)
 
-# Workaround since we can't use SummaryWriter in a different process
-# class LogWriter:
-#     def __init__(self, logger, writer):
-#         self.logger = logger
-#         self.writer = writer
-#         self.steps = Counter()
-#     def write(self):
-#         for key in self.logger.keys():
-#             for value in self.logger[key]:
-#                 self.steps[key] += 1
-#                 if isinstance(value, int) or isinstance(value, float):
-#                     self.writer.add_scalar(key, value, self.steps[key])
-#                 if isinstance(value, np.ndarray) or isinstance(value, torch.Tensor):
-#                     self.writer.add_histogram(key, value, self.steps[key])
-#         self.logger.log = {}
-#     def close(self):
-#         self.writer.close()
-    
-
 class LogWriter:
+    """
+    Takes a logger and writes it to a writter. 
+    While keeping track of the number of times it 
+    a certain tag.
+
+    Notes
+    -----
+    Used to keep track of scalars and histograms in
+    Tensorboard.
+
+    Parameters
+    ----------
+    writer
+      The tensorboard writer.
+    """
     def __init__(self, writer):
         self.writer = writer
         self.steps = Counter()
