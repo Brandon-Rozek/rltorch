@@ -1,4 +1,6 @@
 Hyperparameter Scheduling
 =========================
-.. automodule:: rltorch.scheduler
+.. autoclass:: rltorch.scheduler.LinearScheduler
+   :members:
+.. autoclass:: rltorch.scheduler.ExponentialScheduler
    :members:
