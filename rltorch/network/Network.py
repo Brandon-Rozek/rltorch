@@ -1,6 +1,21 @@
 class Network:
     """
-    Wrapper around model which provides copy of it instead of trained weights
+    Wrapper around model and optimizer in PyTorch to abstract away common use cases.
+    
+    Parameters
+    ----------
+    model : nn.Module
+      A PyTorch nn.Module.
+    optimizer
+      A PyTorch opimtizer from torch.optim.
+    config : dict
+      A dictionary of configuration items.
+    device
+      A device to send the weights to.
+    logger
+      Keeps track of historical weights
+    name
+      For use in logger to differentiate in analysis.
     """
     def __init__(self, model, optimizer, config, device = None, logger = None, name = ""):
         self.model = model
@@ -18,14 +33,29 @@ class Network:
         return self.model(*args)
 
     def clamp_gradients(self, x = 1):
+        """
+        Forcing gradients to stay within a certain interval
+        by setting it to the bound if it goes over it.
+
+        Parameters
+        ----------
+        x : number > 0
+          Sets the interval to be [-x, x]
+        """
         assert x > 0
         for param in self.model.parameters():
             param.grad.data.clamp_(-x, x)
     
     def zero_grad(self):
+        """
+        Clears out gradients held in the model.
+        """
         self.model.zero_grad()
 
     def step(self):
+        """
+        Run a step of the optimizer on `model`.
+        """
         self.optimizer.step()
     
     def log_named_parameters(self):

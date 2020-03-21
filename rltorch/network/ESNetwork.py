@@ -7,9 +7,36 @@ from copy import deepcopy
 # What if we want to sometimes do gradient descent as well?
 class ESNetwork(Network):
     """
-    Network that functions from the paper Evolutionary Strategies (https://arxiv.org/abs/1703.03864)
-    fitness_fun := model, *args -> fitness_value (float)
-    We wish to find a model that maximizes the fitness function
+    Uses evolutionary tecniques to optimize a neural network.
+
+    Notes
+    -----
+    Derived from the paper 
+    Evolutionary Strategies 
+    (https://arxiv.org/abs/1703.03864)
+
+    Parameters
+    ----------
+    model : nn.Module
+      A PyTorch nn.Module.
+    optimizer
+      A PyTorch opimtizer from torch.optim.
+    population_size : int
+      The number of networks to evaluate each iteration.
+    fitness_fn : function
+      Function that evaluates a network and returns a higher
+      number for better performing networks.
+    sigma : number
+      The standard deviation of the guassian noise added to
+      the parameters when creating the population.
+    config : dict
+      A dictionary of configuration items.
+    device
+      A device to send the weights to.
+    logger
+      Keeps track of historical weights
+    name
+      For use in logger to differentiate in analysis.
     """
     def __init__(self, model, optimizer, population_size, fitness_fn, config, sigma = 0.05, device = None, logger = None, name = ""):
         super(ESNetwork, self).__init__(model, optimizer, config, device, logger, name)
@@ -18,9 +45,15 @@ class ESNetwork(Network):
         self.sigma = sigma
         assert self.sigma > 0
 
-    # We're not going to be calculating gradients in the traditional way
-    # So there's no need to waste computation time keeping track
     def __call__(self, *args):
+        """
+        Notes
+        -----
+        Since gradients aren't going to be computed in the 
+        traditional fashion, there is no need to keep
+        track of the computations performed on the
+        tensors.
+        """
         with torch.no_grad():
             result = self.model(*args)
         return result
@@ -48,6 +81,14 @@ class ESNetwork(Network):
         return candidate_solutions
 
     def calc_gradients(self, *args):
+        """
+        Calculate gradients by shifting parameters
+        towards the networks with the highest fitness value.
+
+        This is calculated by evaluating the fitness of multiple
+        networks according to the fitness function specified in
+        the class. 
+        """
         ## Generate Noise
         white_noise_dict, noise_dict = self._generate_noise_dicts()
         
