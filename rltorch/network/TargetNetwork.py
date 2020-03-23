@@ -1,25 +1,43 @@
 from copy import deepcopy
-# Derived from ptan library
+
 class TargetNetwork:
     """
-    Wrapper around model which provides copy of it instead of trained weights
+    Creates a clone of a network with syncing capabilities.
+
+    Parameters
+    ----------
+    network
+      The network to clone.
+    device
+      The device to put the cloned parameters in.
     """
     def __init__(self, network, device = None):
         self.model = network.model
         self.target_model = deepcopy(network.model)
-        if network.device is not None:
+        if device is not None:
+            self.target_model = self.target_model.to(device)
+        elif network.device is not None:
             self.target_model = self.target_model.to(network.device)
 
     def __call__(self, *args):
         return self.model(*args)
 
     def sync(self):
+        """
+        Perform a full state sync with the originating model.
+        """
         self.target_model.load_state_dict(self.model.state_dict())
 
     def partial_sync(self, tau):
         """
-        Blend params of target net with params from the model
-        :param tau:
+        Partially move closer to the parameters of the originating
+        model by updating parameters to be a mix of the
+        originating and the clone models.
+        
+        Parameters
+        ----------
+        tau : number
+          A number between 0-1 which indicates the proportion of the originator and clone in the new clone.
         """
         assert isinstance(tau, float)
         assert 0.0 < tau <= 1.0
