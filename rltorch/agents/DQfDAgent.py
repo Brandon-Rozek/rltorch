@@ -32,18 +32,29 @@ class DQfDAgent:
             batch_size = self.config['batch_size']
             steps = None
         
-        weight_importance = self.config['prioritized_replay_weight_importance']
-        # If it's a scheduler then get the next value by calling next, otherwise just use it's value
-        beta = next(weight_importance) if isinstance(weight_importance, collections.Iterable) else weight_importance
-        
-        # Check to see if we are doing N-Step DQN
-        if steps is not None:
-            minibatch = self.memory.sample_n_steps(batch_size, steps, beta)
-        else:
-            minibatch = self.memory.sample(batch_size, beta = beta)
+        if isinstance(self.memory, M.DQfDMemory):
+            weight_importance = self.config['prioritized_replay_weight_importance']
+            # If it's a scheduler then get the next value by calling next, otherwise just use it's value
+            beta = next(weight_importance) if isinstance(weight_importance, collections.Iterable) else weight_importance
 
-        # Process batch
-        state_batch, action_batch, reward_batch, next_state_batch, not_done_batch, importance_weights, batch_indexes = M.zip_batch(minibatch, priority = True)
+            # Check to see if we are doing N-Step DQN
+            if steps is not None:
+                minibatch = self.memory.sample_n_steps(batch_size, steps, beta)
+            else:
+                minibatch = self.memory.sample(batch_size, beta = beta)
+
+            # Process batch
+            state_batch, action_batch, reward_batch, next_state_batch, not_done_batch, importance_weights, batch_indexes = M.zip_batch(minibatch, priority = True)
+
+        else:
+            # Check to see if we're doing N-Step DQN
+            if steps is not None:
+                minibatch = self.memory.sample_n_steps(batch_size, steps)
+            else:
+                minibatch = self.memory.sample(batch_size)
+
+            # Process batch
+            state_batch, action_batch, reward_batch, next_state_batch, not_done_batch, batch_indexes = M.zip_batch(minibatch, want_indices = True)
 
         batch_index_tensors = torch.tensor(batch_indexes)
         demo_mask = batch_index_tensors < self.memory.demo_position
@@ -75,7 +86,7 @@ class DQfDAgent:
             best_next_state_value = torch.zeros(batch_size, device = self.net.device)
             best_next_state_value[not_done_batch] = next_state_values[not_done_batch].gather(1, next_best_action.view((not_done_size, 1))).squeeze(1)
             
-        expected_values = (reward_batch + (batch_size * best_next_state_value)).unsqueeze(1)
+        expected_values = (reward_batch + (self.config['discount_rate'] * best_next_state_value)).unsqueeze(1)
 
         # N-Step DQN Loss
         # num_steps capture how many steps actually exist before the end of episode
@@ -137,17 +148,26 @@ class DQfDAgent:
         
         
         # Since dqn_loss and demo_loss are different sizes, the reduction has to happen before they are combined
-        dqn_loss = (torch.as_tensor(importance_weights, device = self.net.device) * F.mse_loss(obtained_values, expected_values, reduction = 'none').squeeze(1)).mean()
+        if isinstance(self.memory, M.DQfDMemory):
+            dqn_loss = (torch.as_tensor(importance_weights, device = self.net.device) * F.mse_loss(obtained_values, expected_values, reduction = 'none').squeeze(1)).mean()
+        else:
+            dqn_loss = F.mse_loss(obtained_values, expected_values)
         
         if steps != None:
-            dqn_n_step_loss =  (torch.as_tensor(importance_weights[::steps], device = self.net.device) * F.mse_loss(observed_n_step_values, expected_n_step_values, reduction = 'none')).mean()
+            if isinstance(self.memory, M.DQfDMemory):
+                dqn_n_step_loss =  (torch.as_tensor(importance_weights[::steps], device = self.net.device) * F.mse_loss(observed_n_step_values, expected_n_step_values, reduction = 'none')).mean()
+            else:
+                dqn_n_step_loss =  F.mse_loss(observed_n_step_values, expected_n_step_values, reduction = 'none').mean()
         else:
             dqn_n_step_loss = torch.tensor(0, device = self.net.device)
         
         if demo_mask.sum() > 0:
-            demo_loss = (torch.as_tensor(importance_weights, device = self.net.device)[demo_mask] * F.mse_loss((state_values[demo_mask] + l).max(1)[0].unsqueeze(1), expert_value, reduction = 'none').squeeze(1)).mean()
+            if isinstance(self.memory, M.DQfDMemory):
+                demo_loss = (torch.as_tensor(importance_weights, device = self.net.device)[demo_mask] * F.mse_loss((state_values[demo_mask] + l).max(1)[0].unsqueeze(1), expert_value, reduction = 'none').squeeze(1)).mean()
+            else:
+                demo_loss = F.mse_loss((state_values[demo_mask] + l).max(1)[0].unsqueeze(1), expert_value, reduction = 'none').squeeze(1).mean()
         else:
-            demo_loss = 0
+            demo_loss = 0.
         loss = td_importance * dqn_loss + td_importance * dqn_n_step_loss + demo_importance * demo_loss
         
         if self.logger is not None:
@@ -165,11 +185,11 @@ class DQfDAgent:
                 self.target_net.sync()
         
         # If we're sampling by TD error, readjust the weights of the experiences
-        # TODO: Can probably adjust demonstration priority here
-        td_error = (obtained_values - expected_values).detach().abs()
-        td_error[demo_mask] = td_error[demo_mask] + self.config['demo_prio_bonus']
-        observed_mask = batch_index_tensors >= self.memory.demo_position
-        td_error[observed_mask] = td_error[observed_mask] + self.config['observed_prio_bonus']
-        self.memory.update_priorities(batch_indexes, td_error)
+        if isinstance(self.memory, M.DQfDMemory):
+            td_error = (obtained_values - expected_values).detach().abs()
+            td_error[demo_mask] = td_error[demo_mask] + self.config['demo_prio_bonus']
+            observed_mask = batch_index_tensors >= self.memory.demo_position
+            td_error[observed_mask] = td_error[observed_mask] + self.config['observed_prio_bonus']
+            self.memory.update_priorities(batch_indexes, td_error)
 
 

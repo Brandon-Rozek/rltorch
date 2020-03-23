@@ -17,8 +17,8 @@ class DQfDMemory(PrioritizedReplayMemory):
         last_position = self.position # Get position before super classes change it
         super().append(*args, **kwargs)
         # Don't overwrite demonstration data
-        new_position = ((last_position + 1) % (self.capacity - self.demo_position + 1))
-        self.position = new_position if new_position > self.demo_position else self.demo_position + new_position
+        new_position = ((last_position - self.demo_position + 1) % (self.capacity - self.demo_position))
+        self.position = self.demo_position + new_position
     
     def append_demonstration(self, *args):
         demonstrations = self.memory[:self.demo_position]
