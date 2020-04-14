@@ -17,12 +17,16 @@ class Network:
     name
       For use in logger to differentiate in analysis.
     """
-    def __init__(self, model, optimizer, config, device = None, logger = None, name = ""):
+    def __init__(self, model, optimizer, config, device=None, logger=None, name=""):
         self.model = model
         if 'weight_decay' in config:
-            self.optimizer = optimizer(model.parameters(), lr = config['learning_rate'], weight_decay = config['weight_decay'])
+            self.optimizer = optimizer(
+                model.parameters(),
+                lr=config['learning_rate'],
+                weight_decay=config['weight_decay']
+            )
         else:
-            self.optimizer = optimizer(model.parameters(), lr = config['learning_rate'])
+            self.optimizer = optimizer(model.parameters(), lr=config['learning_rate'])
         self.logger = logger
         self.name = name
         self.device = device
@@ -32,7 +36,7 @@ class Network:
     def __call__(self, *args):
         return self.model(*args)
 
-    def clamp_gradients(self, x = 1):
+    def clamp_gradients(self, x=1):
         """
         Forcing gradients to stay within a certain interval
         by setting it to the bound if it goes over it.

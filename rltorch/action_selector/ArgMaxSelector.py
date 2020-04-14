@@ -1,7 +1,7 @@
 from random import randrange
 import torch
 class ArgMaxSelector:
-    def __init__(self, model, action_size, device = None):
+    def __init__(self, model, action_size, device=None):
         self.model = model
         self.action_size = action_size
         self.device = device
@@ -12,7 +12,8 @@ class ArgMaxSelector:
             if self.device is not None:
                 state = state.to(self.device)
             action_values = self.model(state).squeeze(0)
-            action = self.random_act() if (action_values[0] == action_values).all() else action_values.argmax().item()
+            action = self.random_act() if (action_values[0] == action_values).all() \
+                        else action_values.argmax().item()
         return action
     def act(self, state):
         return self.best_act(state)

@@ -36,4 +36,3 @@ class ExponentialScheduler(Scheduler):
             return self.initial_value * (self.base ** (self.current_iteration - 1))
         else:
             return self.end_value
-

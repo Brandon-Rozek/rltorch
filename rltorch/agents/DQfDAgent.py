@@ -1,14 +1,12 @@
 import collections
+from copy import deepcopy
 import rltorch.memory as M
 import torch
 import torch.nn.functional as F
-from copy import deepcopy
-import numpy as np
-from pathlib import Path
-from rltorch.action_selector import ArgMaxSelector
+
 
 class DQfDAgent:
-    def __init__(self, net, memory, config, target_net = None, logger = None):
+    def __init__(self, net, memory, config, target_net=None, logger=None):
         self.net = net
         self.target_net = target_net
         self.memory = memory
@@ -21,7 +19,7 @@ class DQfDAgent:
         self.net.model.to(self.net.device)
         self.target_net.sync()
     
-    def learn(self, logger = None):
+    def learn(self, logger=None):
         if len(self.memory) < self.config['batch_size']:
             return
         
@@ -32,29 +30,19 @@ class DQfDAgent:
             batch_size = self.config['batch_size']
             steps = None
         
-        if isinstance(self.memory, M.DQfDMemory):
-            weight_importance = self.config['prioritized_replay_weight_importance']
-            # If it's a scheduler then get the next value by calling next, otherwise just use it's value
-            beta = next(weight_importance) if isinstance(weight_importance, collections.Iterable) else weight_importance
-
-            # Check to see if we are doing N-Step DQN
-            if steps is not None:
-                minibatch = self.memory.sample_n_steps(batch_size, steps, beta)
-            else:
-                minibatch = self.memory.sample(batch_size, beta = beta)
-
-            # Process batch
-            state_batch, action_batch, reward_batch, next_state_batch, not_done_batch, importance_weights, batch_indexes = M.zip_batch(minibatch, priority = True)
-
+        weight_importance = self.config['prioritized_replay_weight_importance']
+        # If it's a scheduler then get the next value by calling next, otherwise just use it's value
+        beta = next(weight_importance) if isinstance(weight_importance, collections.Iterable) \
+            else weight_importance
+        
+        # Check to see if we are doing N-Step DQN
+        if steps is not None:
+            minibatch = self.memory.sample_n_steps(batch_size, steps, beta)
         else:
-            # Check to see if we're doing N-Step DQN
-            if steps is not None:
-                minibatch = self.memory.sample_n_steps(batch_size, steps)
-            else:
-                minibatch = self.memory.sample(batch_size)
+            minibatch = self.memory.sample(batch_size, beta=beta)
 
-            # Process batch
-            state_batch, action_batch, reward_batch, next_state_batch, not_done_batch, batch_indexes = M.zip_batch(minibatch, want_indices = True)
+        # Process batch
+        state_batch, action_batch, reward_batch, next_state_batch, not_done_batch, importance_weights, batch_indexes = M.zip_batch(minibatch, priority=True)
 
         batch_index_tensors = torch.tensor(batch_indexes)
         demo_mask = batch_index_tensors < self.memory.demo_position
@@ -75,7 +63,7 @@ class DQfDAgent:
             # and the regular net to select the action
             # That way we decouple the value and action selecting processes (DOUBLE DQN)
             not_done_size = not_done_batch.sum()
-            next_state_values = torch.zeros_like(state_values, device = self.net.device)
+            next_state_values = torch.zeros_like(state_values, device=self.net.device)
             if self.target_net is not None:
                 next_state_values[not_done_batch] = self.target_net(next_state_batch[not_done_batch])
                 next_best_action = self.net(next_state_batch[not_done_batch]).argmax(1)
@@ -83,14 +71,14 @@ class DQfDAgent:
                 next_state_values[not_done_batch] = self.net(next_state_batch[not_done_batch])
                 next_best_action = next_state_values[not_done_batch].argmax(1)
 
-            best_next_state_value = torch.zeros(batch_size, device = self.net.device)
+            best_next_state_value = torch.zeros(batch_size, device=self.net.device)
             best_next_state_value[not_done_batch] = next_state_values[not_done_batch].gather(1, next_best_action.view((not_done_size, 1))).squeeze(1)
             
-        expected_values = (reward_batch + (self.config['discount_rate'] * best_next_state_value)).unsqueeze(1)
+        expected_values = (reward_batch + (batch_size * best_next_state_value)).unsqueeze(1)
 
         # N-Step DQN Loss
         # num_steps capture how many steps actually exist before the end of episode
-        if steps != None:
+        if steps is not None:
             expected_n_step_values = []
             with torch.no_grad():
                 for i in range(0, len(state_batch), steps):
@@ -127,7 +115,7 @@ class DQfDAgent:
             l = torch.ones_like(state_values[demo_mask])
             expert_actions = action_batch[demo_mask]
             # l(s, a) is zero for every action the expert doesn't take
-            for i,a in zip(range(len(l)), expert_actions):
+            for i, _, a in zip(enumerate(l), expert_actions):
                 l[i].fill_(0.8) # According to paper
                 l[i, a] = 0
             if self.target_net is not None:
@@ -139,35 +127,26 @@ class DQfDAgent:
         # Iterate through hyperparamters
         if isinstance(self.config['dqfd_demo_loss_weight'], collections.Iterable):
             demo_importance = next(self.config['dqfd_demo_loss_weight'])
-        else: 
+        else:
             demo_importance = self.config['dqfd_demo_loss_weight']
         if isinstance(self.config['dqfd_td_loss_weight'], collections.Iterable):
             td_importance = next(self.config['dqfd_td_loss_weight'])
-        else: 
+        else:
             td_importance = self.config['dqfd_td_loss_weight']
         
         
         # Since dqn_loss and demo_loss are different sizes, the reduction has to happen before they are combined
-        if isinstance(self.memory, M.DQfDMemory):
-            dqn_loss = (torch.as_tensor(importance_weights, device = self.net.device) * F.mse_loss(obtained_values, expected_values, reduction = 'none').squeeze(1)).mean()
-        else:
-            dqn_loss = F.mse_loss(obtained_values, expected_values)
+        dqn_loss = (torch.as_tensor(importance_weights, device=self.net.device) * F.mse_loss(obtained_values, expected_values, reduction='none').squeeze(1)).mean()
         
-        if steps != None:
-            if isinstance(self.memory, M.DQfDMemory):
-                dqn_n_step_loss =  (torch.as_tensor(importance_weights[::steps], device = self.net.device) * F.mse_loss(observed_n_step_values, expected_n_step_values, reduction = 'none')).mean()
-            else:
-                dqn_n_step_loss =  F.mse_loss(observed_n_step_values, expected_n_step_values, reduction = 'none').mean()
+        if steps is not None:
+            dqn_n_step_loss = (torch.as_tensor(importance_weights[::steps], device=self.net.device) * F.mse_loss(observed_n_step_values, expected_n_step_values, reduction='none')).mean()
         else:
-            dqn_n_step_loss = torch.tensor(0, device = self.net.device)
+            dqn_n_step_loss = torch.tensor(0, device=self.net.device)
         
         if demo_mask.sum() > 0:
-            if isinstance(self.memory, M.DQfDMemory):
-                demo_loss = (torch.as_tensor(importance_weights, device = self.net.device)[demo_mask] * F.mse_loss((state_values[demo_mask] + l).max(1)[0].unsqueeze(1), expert_value, reduction = 'none').squeeze(1)).mean()
-            else:
-                demo_loss = F.mse_loss((state_values[demo_mask] + l).max(1)[0].unsqueeze(1), expert_value, reduction = 'none').squeeze(1).mean()
+            demo_loss = (torch.as_tensor(importance_weights, device=self.net.device)[demo_mask] * F.mse_loss((state_values[demo_mask] + l).max(1)[0].unsqueeze(1), expert_value, reduction='none').squeeze(1)).mean()
         else:
-            demo_loss = 0.
+            demo_loss = 0
         loss = td_importance * dqn_loss + td_importance * dqn_n_step_loss + demo_importance * demo_loss
         
         if self.logger is not None:

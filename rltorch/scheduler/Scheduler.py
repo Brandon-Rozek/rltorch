@@ -7,4 +7,4 @@ class Scheduler():
     def __iter__(self):
         return self
     def __next__(self):
-        raise NotImplementedError("Scheduler does not have it's function to create a value implemented")
+        raise NotImplementedError("__next__ not implemented in Scheduler")

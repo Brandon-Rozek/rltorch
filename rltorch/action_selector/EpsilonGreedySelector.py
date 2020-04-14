@@ -1,9 +1,10 @@
-from .ArgMaxSelector import ArgMaxSelector
-import numpy as np 
 import collections
+import numpy as np
+from .ArgMaxSelector import ArgMaxSelector
+
 class EpsilonGreedySelector(ArgMaxSelector):
-    def __init__(self, model, action_size, device = None, epsilon = 0.1):
-        super(EpsilonGreedySelector, self).__init__(model, action_size, device = device)
+    def __init__(self, model, action_size, device=None, epsilon=0.1):
+        super(EpsilonGreedySelector, self).__init__(model, action_size, device=device)
         self.epsilon = epsilon
     # random_act is already implemented in ArgMaxSelector
     # best_act is already implemented in ArgMaxSelector

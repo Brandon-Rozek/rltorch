@@ -11,7 +11,7 @@ class TargetNetwork:
     device
       The device to put the cloned parameters in.
     """
-    def __init__(self, network, device = None):
+    def __init__(self, network, device=None):
         self.model = network.model
         self.target_model = deepcopy(network.model)
         if device is not None:
@@ -37,7 +37,8 @@ class TargetNetwork:
         Parameters
         ----------
         tau : number
-          A number between 0-1 which indicates the proportion of the originator and clone in the new clone.
+          A number between 0-1 which indicates
+          the proportion of the originator and clone in the new clone.
         """
         assert isinstance(tau, float)
         assert 0.0 < tau <= 1.0

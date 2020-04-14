@@ -1,9 +1,8 @@
+from copy import deepcopy
 import numpy as np
 import torch
-from .Network import Network
-from copy import deepcopy
 import torch.multiprocessing as mp
-import functools
+from .Network import Network
 
 class fn_copy:
     def __init__(self, fn, args):
@@ -20,14 +19,15 @@ class ESNetworkMP(Network):
     fitness_fun := model, *args -> fitness_value (float)
     We wish to find a model that maximizes the fitness function
     """
-    def __init__(self, model, optimizer, population_size, fitness_fn, config, sigma = 0.05, device = None, logger = None, name = ""):
+    def __init__(self, model, optimizer, population_size, fitness_fn, config, sigma=0.05, device=None, logger=None, name=""):
         super(ESNetworkMP, self).__init__(model, optimizer, config, device, logger, name)
         self.population_size = population_size
         self.fitness = fitness_fn
         self.sigma = sigma
         assert self.sigma > 0
         mp_ctx = mp.get_context("spawn")
-        self.pool = mp_ctx.Pool(processes=2) #[TODO] Probably should make number of processes a config variable
+        #[TODO] Probably should make number of processes a config variable
+        self.pool = mp_ctx.Pool(processes=2) 
 
     # We're not going to be calculating gradients in the traditional way
     # So there's no need to waste computation time keeping track
@@ -42,7 +42,11 @@ class ESNetworkMP(Network):
         white_noise_dict = {}
         noise_dict = {}
         for key in model_dict.keys():
-            white_noise_dict[key] = torch.randn(self.population_size, *model_dict[key].shape, device = self.device)
+            white_noise_dict[key] = torch.randn(
+                self.population_size,
+                *model_dict[key].shape,
+                device=self.device
+            )
             noise_dict[key] = self.sigma * white_noise_dict[key]
         return white_noise_dict, noise_dict
 
@@ -67,7 +71,10 @@ class ESNetworkMP(Network):
         candidate_solutions = self._generate_candidate_solutions(noise_dict)
         
         ## Calculate fitness then mean shift, scale
-        fitness_values = torch.tensor(list(self.pool.map(fn_copy(self.fitness, args), candidate_solutions)), device = self.device)
+        fitness_values = torch.tensor(
+            list(self.pool.map(fn_copy(self.fitness, args), candidate_solutions)),
+            device=self.device
+        )
 
         if self.logger is not None:
             self.logger.append(self.name + "/" + "fitness_value", fitness_values.mean().item())

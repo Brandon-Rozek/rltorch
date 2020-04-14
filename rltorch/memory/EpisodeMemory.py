@@ -1,6 +1,4 @@
-import random
 from collections import namedtuple
-import torch
 Transition = namedtuple('Transition',
     ('state', 'action', 'reward', 'next_state', 'done'))
 
@@ -39,7 +37,7 @@ class EpisodeMemory(object):
 
     def recall(self):
         """
-        Return a list of the transitions with their 
+        Return a list of the transitions with their
         associated log-based probabilities.
         """
         if len(self.memory) != len(self.log_probs):

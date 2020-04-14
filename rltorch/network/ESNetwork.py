@@ -1,7 +1,8 @@
+from copy import deepcopy
 import numpy as np
 import torch
 from .Network import Network
-from copy import deepcopy
+
 
 # [TODO] Should we torch.no_grad the __call__?
 # What if we want to sometimes do gradient descent as well?
@@ -11,8 +12,8 @@ class ESNetwork(Network):
 
     Notes
     -----
-    Derived from the paper 
-    Evolutionary Strategies 
+    Derived from the paper
+    Evolutionary Strategies
     (https://arxiv.org/abs/1703.03864)
 
     Parameters
@@ -38,7 +39,7 @@ class ESNetwork(Network):
     name
       For use in logger to differentiate in analysis.
     """
-    def __init__(self, model, optimizer, population_size, fitness_fn, config, sigma = 0.05, device = None, logger = None, name = ""):
+    def __init__(self, model, optimizer, population_size, fitness_fn, config, sigma=0.05, device=None, logger=None, name=""):
         super(ESNetwork, self).__init__(model, optimizer, config, device, logger, name)
         self.population_size = population_size
         self.fitness = fitness_fn
@@ -49,7 +50,7 @@ class ESNetwork(Network):
         """
         Notes
         -----
-        Since gradients aren't going to be computed in the 
+        Since gradients aren't going to be computed in the
         traditional fashion, there is no need to keep
         track of the computations performed on the
         tensors.
@@ -64,7 +65,11 @@ class ESNetwork(Network):
         white_noise_dict = {}
         noise_dict = {}
         for key in model_dict.keys():
-            white_noise_dict[key] = torch.randn(self.population_size, *model_dict[key].shape, device = self.device)
+            white_noise_dict[key] = torch.randn(
+                self.population_size,
+                *model_dict[key].shape,
+                device=self.device
+            )
             noise_dict[key] = self.sigma * white_noise_dict[key]
         return white_noise_dict, noise_dict
 
@@ -87,7 +92,7 @@ class ESNetwork(Network):
 
         This is calculated by evaluating the fitness of multiple
         networks according to the fitness function specified in
-        the class. 
+        the class.
         """
         ## Generate Noise
         white_noise_dict, noise_dict = self._generate_noise_dicts()
@@ -96,7 +101,10 @@ class ESNetwork(Network):
         candidate_solutions = self._generate_candidate_solutions(noise_dict)
         
         ## Calculate fitness then mean shift, scale
-        fitness_values = torch.tensor([self.fitness(x, *args) for x in candidate_solutions], device = self.device)
+        fitness_values = torch.tensor(
+            [self.fitness(x, *args) for x in candidate_solutions],
+            device=self.device
+        )
         if self.logger is not None:
             self.logger.append(self.name + "/" + "fitness_value", fitness_values.mean().item())
         fitness_values = (fitness_values - fitness_values.mean()) / (fitness_values.std() + np.finfo('float').eps)

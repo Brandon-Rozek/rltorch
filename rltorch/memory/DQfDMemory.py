@@ -1,13 +1,13 @@
-from .PrioritizedReplayMemory import PrioritizedReplayMemory
 from collections import namedtuple
 import numpy as np
+from .PrioritizedReplayMemory import PrioritizedReplayMemory
 
 Transition = namedtuple('Transition',
     ('state', 'action', 'reward', 'next_state', 'done'))
 
 
 class DQfDMemory(PrioritizedReplayMemory):
-    def __init__(self, capacity, alpha, max_demo = -1):
+    def __init__(self, capacity, alpha, max_demo=-1):
         assert max_demo <= capacity
         super().__init__(capacity, alpha)
         self.demo_position = 0
@@ -47,7 +47,8 @@ class DQfDMemory(PrioritizedReplayMemory):
         idxes = self._sample_proportional(sample_size)
         step_idxes = []
         for i in idxes:
-            # If the interval of experiences fall between demonstration and obtained, move it over to the demonstration half
+            # If the interval of experiences fall between demonstration and obtained,
+            # move it over to the demonstration half
             if i < self.demo_position and i + steps > self.demo_position:
                 diff = i + steps - self.demo_position
                 step_idxes += range(i - diff, i + steps - diff)

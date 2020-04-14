@@ -1,40 +1,40 @@
 from copy import deepcopy
+from ctypes import c_uint
 import torch.multiprocessing as mp
-from ctypes import *
 import rltorch.log
 
-def envrun(actor, env, episode_num, config, runcondition, iterations = 1, memoryqueue = None, logqueue = None, name = ""):
-  state = env.reset()
-  episode_reward = 0
-  # Wait for signal to start running through the environment
-  while runcondition.wait():
-    # Start a logger to log the rewards
-    logger = rltorch.log.Logger() if logqueue is not None else None
+def envrun(actor, env, episode_num, config, runcondition, iterations=1, memoryqueue=None, logqueue=None, name=""):
+    state = env.reset()
+    episode_reward = 0
+    # Wait for signal to start running through the environment
+    while runcondition.wait():
+      # Start a logger to log the rewards
+        logger = rltorch.log.Logger() if logqueue is not None else None
     for _ in range(iterations):
-      action = actor.act(state)
-      next_state, reward, done, _ = env.step(action)
-       
-      episode_reward += reward
-      if memoryqueue is not None:
-        memoryqueue.put((state, action, reward, next_state, done))
-       
-      state = next_state
-
-      if done:
-        with episode_num.get_lock():
-          if episode_num.value % config['print_stat_n_eps'] == 0:
-            print("episode: {}/{}, score: {}"
-              .format(episode_num.value, config['total_training_episodes'], episode_reward))
-          
-        if logger is not None:
-          logger.append(name + '/EpisodeReward', episode_reward)
-        episode_reward = 0
-        state = env.reset()
-        with episode_num.get_lock():
-          episode_num.value +=  1
-          
-    if logqueue is not None:
-      logqueue.put(logger)
+        action = actor.act(state)
+        next_state, reward, done, _ = env.step(action)
+     
+        episode_reward += reward
+        if memoryqueue is not None:
+            memoryqueue.put((state, action, reward, next_state, done))
+     
+        state = next_state
+    
+        if done:
+            with episode_num.get_lock():
+                if episode_num.value % config['print_stat_n_eps'] == 0:
+                    print("episode: {}/{}, score: {}"
+                        .format(episode_num.value, config['total_training_episodes'], episode_reward))
+        
+            if logger is not None:
+                logger.append(name + '/EpisodeReward', episode_reward)
+            episode_reward = 0
+            state = env.reset()
+            with episode_num.get_lock():
+                episode_num.value +=  1
+        
+            if logqueue is not None:
+                logqueue.put(logger)
   
 class EnvironmentRun():
   def __init__(self, env, actor, config, memory = None, logwriter = None, name = ""):

@@ -1,8 +1,9 @@
-from .ArgMaxSelector import ArgMaxSelector
 import torch
+from .ArgMaxSelector import ArgMaxSelector
+
 class IdentitySelector(ArgMaxSelector):
-    def __init__(self, model, action_size, device = None):
-        super(IdentitySelector, self).__init__(model, action_size, device = device)
+    def __init__(self, model, action_size, device=None):
+        super(IdentitySelector, self).__init__(model, action_size, device=device)
     # random_act is already implemented in ArgMaxSelector
     def best_act(self, state):
         with torch.no_grad():

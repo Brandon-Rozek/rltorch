@@ -1,108 +1,108 @@
-from copy import deepcopy 
-import rltorch
+from copy import deepcopy
 import time
+import rltorch
 
-def simulateEnvEps(env, actor, config, total_episodes = 1, memory = None, logger = None, name = "", render = False):
-  for episode in range(total_episodes):
-    state = env.reset()
-    done = False
-    episode_reward = 0
-    while not done:
-      action = actor.act(state)
-      next_state, reward, done, _ = env.step(action)
-      if render:
-        env.render()
-        time.sleep(0.01)
+def simulateEnvEps(env, actor, config, total_episodes=1, memory=None, logger=None, name="", render=False):
+    for episode in range(total_episodes):
+        state = env.reset()
+        done = False
+        episode_reward = 0
+        while not done:
+            action = actor.act(state)
+            next_state, reward, done, _ = env.step(action)
+            if render:
+                env.render()
+                time.sleep(0.01)
 
-      episode_reward = episode_reward + reward
-      if memory is not None:
-        memory.append(state, action, reward, next_state, done)
-      state = next_state
+        episode_reward = episode_reward + reward
+        if memory is not None:
+            memory.append(state, action, reward, next_state, done)
+        state = next_state
 
-    if episode % config['print_stat_n_eps'] == 0:
-      print("episode: {}/{}, score: {}"
-        .format(episode, total_episodes, episode_reward), flush=True)
+        if episode % config['print_stat_n_eps'] == 0:
+            print("episode: {}/{}, score: {}"
+                  .format(episode, total_episodes, episode_reward), flush=True)
     
-    if logger is not None:
-      logger.append(name + '/EpisodeReward', episode_reward)
+        if logger is not None:
+            logger.append(name + '/EpisodeReward', episode_reward)
 
 
-class EnvironmentRunSync():
-  def __init__(self, env, actor, config, memory = None, logwriter = None, name = "", render = False):
-    self.env = env
-    self.name = name
-    self.actor = actor
-    self.config = deepcopy(config)
-    self.logwriter = logwriter
-    self.memory = memory
-    self.episode_num = 1
-    self.episode_reward = 0
-    self.last_state = env.reset()
-    self.render = render
+class EnvironmentRunSync:
+    def __init__(self, env, actor, config, memory=None, logwriter=None, name="", render=False):
+        self.env = env
+        self.name = name
+        self.actor = actor
+        self.config = deepcopy(config)
+        self.logwriter = logwriter
+        self.memory = memory
+        self.episode_num = 1
+        self.episode_reward = 0
+        self.last_state = env.reset()
+        self.render = render
 
-  def run(self, iterations):
-    state = self.last_state
-    logger = rltorch.log.Logger() if self.logwriter is not None else None
-    for _ in range(iterations):
-      action = self.actor.act(state)
-      next_state, reward, done, _ = self.env.step(action)
-      if self.render:
-        self.env.render()
+    def run(self, iterations):
+        state = self.last_state
+        logger = rltorch.log.Logger() if self.logwriter is not None else None
+        for _ in range(iterations):
+            action = self.actor.act(state)
+            next_state, reward, done, _ = self.env.step(action)
+            if self.render:
+                self.env.render()
        
-      self.episode_reward += reward
-      if self.memory is not None:
-        self.memory.append(state, action, reward, next_state, done)
+            self.episode_reward += reward
+            if self.memory is not None:
+                self.memory.append(state, action, reward, next_state, done)
        
-      state = next_state
+            state = next_state
 
-      if done:
+            if done:
+                if self.episode_num % self.config['print_stat_n_eps'] == 0:
+                    print("episode: {}/{}, score: {}"
+                          .format(self.episode_num, self.config['total_training_episodes'], self.episode_reward), flush=True)
+          
+                if self.logwriter is not None:
+                    logger.append(self.name + '/EpisodeReward', self.episode_reward)
+                self.episode_reward = 0
+                state = self.env.reset()
+                self.episode_num += 1
+          
+                if self.logwriter is not None:
+                    self.logwriter.write(logger)
+    
+        self.last_state = state
+
+
+class EnvironmentEpisodeSync:
+    def __init__(self, env, actor, config, memory=None, logwriter=None, name=""):
+        self.env = env
+        self.name = name
+        self.actor = actor
+        self.config = deepcopy(config)
+        self.logwriter = logwriter
+        self.memory = memory
+        self.episode_num = 1
+
+    def run(self):
+        state = self.env.reset()
+        done = False
+        episodeReward = 0
+        logger = rltorch.log.Logger() if self.logwriter is not None else None
+        while not done:
+            action = self.actor.act(state)
+            next_state, reward, done, _ = self.env.step(action)
+       
+            episodeReward += reward
+            if self.memory is not None:
+                self.memory.append(state, action, reward, next_state, done)
+       
+            state = next_state
+
         if self.episode_num % self.config['print_stat_n_eps'] == 0:
-          print("episode: {}/{}, score: {}"
-            .format(self.episode_num, self.config['total_training_episodes'], self.episode_reward), flush=True)
+            print("episode: {}/{}, score: {}"
+                  .format(self.episode_num, self.config['total_training_episodes'], episodeReward), flush=True)
           
         if self.logwriter is not None:
-          logger.append(self.name + '/EpisodeReward', self.episode_reward)
-        self.episode_reward = 0
-        state = self.env.reset()
-        self.episode_num +=  1
-          
-    if self.logwriter is not None:
-      self.logwriter.write(logger)
+            logger.append(self.name + '/EpisodeReward', episodeReward)
+            self.logwriter.write(logger)
     
-    self.last_state = state
-
-
-class EnvironmentEpisodeSync():
-  def __init__(self, env, actor, config, memory = None, logwriter = None, name = ""):
-    self.env = env
-    self.name = name
-    self.actor = actor
-    self.config = deepcopy(config)
-    self.logwriter = logwriter
-    self.memory = memory
-    self.episode_num = 1
-
-  def run(self):
-    state = self.env.reset()
-    done = False
-    episodeReward = 0
-    logger = rltorch.log.Logger() if self.logwriter is not None else None
-    while not done:
-      action = self.actor.act(state)
-      next_state, reward, done, _ = self.env.step(action)
-       
-      episodeReward += reward
-      if self.memory is not None:
-        self.memory.append(state, action, reward, next_state, done)
-       
-      state = next_state
-
-    if self.episode_num % self.config['print_stat_n_eps'] == 0:
-      print("episode: {}/{}, score: {}"
-        .format(self.episode_num, self.config['total_training_episodes'], episodeReward), flush=True)
-          
-    if self.logwriter is not None:
-      logger.append(self.name + '/EpisodeReward', episodeReward)
-      self.logwriter.write(logger)
-    
-    self.episode_num +=  1
+        self.episode_num += 1

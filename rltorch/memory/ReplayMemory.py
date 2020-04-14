@@ -80,7 +80,7 @@ class ReplayMemory(object):
           The number of observations after the one selected to sample.
         """
         idxes = random.sample(
-            range(len(self.memory) - steps), 
+            range(len(self.memory) - steps),
             batch_size // steps
         )
         step_idxes = []
@@ -106,11 +106,9 @@ class ReplayMemory(object):
     def __reversed__(self):
         return reversed(self.memory)
 
-def zip_batch(minibatch, priority = False, want_indices = False):
+def zip_batch(minibatch, priority=False):
     if priority:
         state_batch, action_batch, reward_batch, next_state_batch, done_batch, weights, indexes = zip(*minibatch)
-    elif want_indices:
-        state_batch, action_batch, reward_batch, next_state_batch, done_batch, indexes = zip(*minibatch)
     else:
         state_batch, action_batch, reward_batch, next_state_batch, done_batch = zip(*minibatch)
         
@@ -122,7 +120,5 @@ def zip_batch(minibatch, priority = False, want_indices = False):
 
     if priority:
         return state_batch, action_batch, reward_batch, next_state_batch, not_done_batch, weights, indexes
-    elif want_indices:
-        return state_batch, action_batch, reward_batch, next_state_batch, not_done_batch, indexes
     else:
         return state_batch, action_batch, reward_batch, next_state_batch, not_done_batch

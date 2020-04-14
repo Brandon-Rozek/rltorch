@@ -1,10 +1,9 @@
 # From OpenAI Baselines https://github.com/openai/baselines/blob/master/baselines/deepq/replay_buffer.py
-
-from .ReplayMemory import ReplayMemory
 import operator
 import random
 import numpy as np
 from numba import jit
+from .ReplayMemory import ReplayMemory
 
 class SegmentTree(object):
     def __init__(self, capacity, operation, neutral_element):
@@ -34,7 +33,7 @@ class SegmentTree(object):
         self._value = [neutral_element for _ in range(2 * capacity)]
         self._operation = operation
 
-    @jit(forceobj = True)
+    @jit(forceobj=True)
     def _reduce_helper(self, start, end, node, node_start, node_end):
         if start == node_start and end == node_end:
             return self._value[node]
@@ -50,7 +49,7 @@ class SegmentTree(object):
                     self._reduce_helper(mid + 1, end, 2 * node + 1, mid + 1, node_end)
                 )
 
-    @jit(forceobj = True)
+    @jit(forceobj=True)
     def reduce(self, start=0, end=None):
         """Returns result of applying `self.operation`
         to a contiguous subsequence of the array.
@@ -73,7 +72,7 @@ class SegmentTree(object):
         end -= 1
         return self._reduce_helper(start, end, 1, 0, self._capacity - 1)
 
-    @jit(forceobj = True)
+    @jit(forceobj=True)
     def __setitem__(self, idx, val):
         # index of the leaf
         idx += self._capacity
@@ -86,7 +85,7 @@ class SegmentTree(object):
             )
             idx //= 2
 
-    @jit(forceobj = True)
+    @jit(forceobj=True)
     def __getitem__(self, idx):
         assert 0 <= idx < self._capacity
         return self._value[self._capacity + idx]
@@ -100,12 +99,12 @@ class SumSegmentTree(SegmentTree):
             neutral_element=0.0
         )
 
-    @jit(forceobj = True)
+    @jit(forceobj=True)
     def sum(self, start=0, end=None):
         """Returns arr[start] + ... + arr[end]"""
         return super(SumSegmentTree, self).reduce(start, end)
 
-    @jit(forceobj = True, parallel = True)
+    @jit(forceobj=True, parallel=True)
     def find_prefixsum_idx(self, prefixsum):
         """Find the highest index `i` in the array such that
             sum(arr[0] + arr[1] + ... + arr[i - i]) <= prefixsum
@@ -140,7 +139,7 @@ class MinSegmentTree(SegmentTree):
             neutral_element=float('inf')
         )
 
-    @jit(forceobj = True)
+    @jit(forceobj=True)
     def min(self, start=0, end=None):
         """Returns min(arr[start], ...,  arr[end])"""
         return super(MinSegmentTree, self).reduce(start, end)
@@ -185,7 +184,7 @@ class PrioritizedReplayMemory(ReplayMemory):
         self._it_sum[idx] = self._max_priority ** self._alpha
         self._it_min[idx] = self._max_priority ** self._alpha
 
-    @jit(forceobj = True)
+    @jit(forceobj=True)
     def _sample_proportional(self, batch_size):
         res = []
         p_total = self._it_sum.sum(0, len(self.memory) - 1)
@@ -294,7 +293,7 @@ class PrioritizedReplayMemory(ReplayMemory):
         batch = list(zip(*encoded_sample, weights, step_idxes))
         return batch
     
-    @jit(forceobj = True)
+    @jit(forceobj=True)
     def update_priorities(self, idxes, priorities):
         """
         Update priorities of sampled transitions.
@@ -320,4 +319,3 @@ class PrioritizedReplayMemory(ReplayMemory):
             self._it_min[idx] = priority ** self._alpha
 
             self._max_priority = max(self._max_priority, priority)
-
