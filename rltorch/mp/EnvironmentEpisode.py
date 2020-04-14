@@ -3,14 +3,14 @@
 
 from copy import deepcopy
 import torch.multiprocessing as mp
+import rltorch.log as log
 
 class EnvironmentEpisode(mp.Process):
-    def __init__(self, env, actor, config, logger=None, name=""):
+    def __init__(self, env, actor, config, name=""):
         super(EnvironmentEpisode, self).__init__()
         self.env = env
         self.actor = actor
         self.config = deepcopy(config)
-        self.logger = logger
         self.name = name
         self.episode_num = 1
 
@@ -30,7 +30,7 @@ class EnvironmentEpisode(mp.Process):
         if printstat:
             print("episode: {}/{}, score: {}"
                   .format(self.episode_num, self.config['total_training_episodes'], episode_reward))
-        if self.logger is not None:
-            self.logger.append(self.name + '/EpisodeReward', episode_reward)
+        if log.enabled:
+            log.Logger[self.name + '/EpisodeReward'].append(episode_reward)
 
         self.episode_num += 1

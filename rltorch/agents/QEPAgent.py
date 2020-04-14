@@ -6,13 +6,14 @@ import torch.nn.functional as F
 from torch.distributions import Categorical
 import rltorch
 import rltorch.memory as M
+import rltorch.log as log
 
 
 # Q-Evolutionary Policy Agent
 # Maximizes the policy with respect to the Q-Value function.
 # Since function is non-differentiabile, depends on the Evolutionary Strategy algorithm
 class QEPAgent:
-    def __init__(self, policy_net, value_net, memory, config, target_value_net=None, logger=None, entropy_importance=0, policy_skip=4):
+    def __init__(self, policy_net, value_net, memory, config, target_value_net=None, entropy_importance=0, policy_skip=4):
         self.policy_net = policy_net
         assert isinstance(self.policy_net, rltorch.network.ESNetwork) or isinstance(self.policy_net, rltorch.network.ESNetworkMP)
         self.policy_net.fitness = self.fitness
@@ -20,7 +21,6 @@ class QEPAgent:
         self.target_value_net = target_value_net
         self.memory = memory
         self.config = deepcopy(config)
-        self.logger = logger
         self.policy_skip = policy_skip
         self.entropy_importance = entropy_importance
     
@@ -67,7 +67,7 @@ class QEPAgent:
         return (entropy_importance * entropy_loss - value_importance * obtained_values).mean().item()
         
 
-    def learn(self, logger=None):
+    def learn(self):
         if len(self.memory) < self.config['batch_size']:
             return
         
@@ -114,8 +114,8 @@ class QEPAgent:
         else:
             value_loss = F.mse_loss(obtained_values, expected_values)
         
-        if self.logger is not None:
-            self.logger.append("Loss/Value", value_loss.item())
+        if log.enabled:
+            log.Logger["Loss/Value"].append(value_loss.item())
 
         self.value_net.zero_grad()
         value_loss.backward()

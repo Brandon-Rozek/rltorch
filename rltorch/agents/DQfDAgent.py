@@ -3,15 +3,14 @@ from copy import deepcopy
 import rltorch.memory as M
 import torch
 import torch.nn.functional as F
-
+import rltorch.log as log
 
 class DQfDAgent:
-    def __init__(self, net, memory, config, target_net=None, logger=None):
+    def __init__(self, net, memory, config, target_net=None):
         self.net = net
         self.target_net = target_net
         self.memory = memory
         self.config = deepcopy(config)
-        self.logger = logger
     def save(self, file_location):
         torch.save(self.net.model.state_dict(), file_location)
     def load(self, file_location):
@@ -19,7 +18,7 @@ class DQfDAgent:
         self.net.model.to(self.net.device)
         self.target_net.sync()
     
-    def learn(self, logger=None):
+    def learn(self):
         if len(self.memory) < self.config['batch_size']:
             return
         
@@ -149,8 +148,8 @@ class DQfDAgent:
             demo_loss = 0
         loss = td_importance * dqn_loss + td_importance * dqn_n_step_loss + demo_importance * demo_loss
         
-        if self.logger is not None:
-            self.logger.append("Loss", loss.item())
+        if log.enabled:
+            log.Logger["Loss"].append(loss.item())
 
         self.net.zero_grad()
         loss.backward()

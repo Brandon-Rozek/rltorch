@@ -2,7 +2,7 @@ from copy import deepcopy
 import time
 import rltorch
 
-def simulateEnvEps(env, actor, config, total_episodes=1, memory=None, logger=None, name="", render=False):
+def simulateEnvEps(env, actor, config, total_episodes=1, memory=None, name="", render=False):
     for episode in range(total_episodes):
         state = env.reset()
         done = False
@@ -23,8 +23,8 @@ def simulateEnvEps(env, actor, config, total_episodes=1, memory=None, logger=Non
             print("episode: {}/{}, score: {}"
                   .format(episode, total_episodes, episode_reward), flush=True)
     
-        if logger is not None:
-            logger.append(name + '/EpisodeReward', episode_reward)
+        if rltorch.log.enabled:
+            rltorch.log.Logger[name + '/EpisodeReward'].append(episode_reward)
 
 
 class EnvironmentRunSync:
@@ -42,7 +42,6 @@ class EnvironmentRunSync:
 
     def run(self, iterations):
         state = self.last_state
-        logger = rltorch.log.Logger() if self.logwriter is not None else None
         for _ in range(iterations):
             action = self.actor.act(state)
             next_state, reward, done, _ = self.env.step(action)
@@ -61,13 +60,13 @@ class EnvironmentRunSync:
                           .format(self.episode_num, self.config['total_training_episodes'], self.episode_reward), flush=True)
           
                 if self.logwriter is not None:
-                    logger.append(self.name + '/EpisodeReward', self.episode_reward)
+                    rltorch.log.Logger[self.name + '/EpisodeReward'].append(self.episode_reward)
                 self.episode_reward = 0
                 state = self.env.reset()
                 self.episode_num += 1
           
                 if self.logwriter is not None:
-                    self.logwriter.write(logger)
+                    self.logwriter.write(rltorch.log.Logger)
     
         self.last_state = state
 
@@ -86,15 +85,13 @@ class EnvironmentEpisodeSync:
         state = self.env.reset()
         done = False
         episodeReward = 0
-        logger = rltorch.log.Logger() if self.logwriter is not None else None
         while not done:
             action = self.actor.act(state)
             next_state, reward, done, _ = self.env.step(action)
-       
             episodeReward += reward
             if self.memory is not None:
                 self.memory.append(state, action, reward, next_state, done)
-       
+
             state = next_state
 
         if self.episode_num % self.config['print_stat_n_eps'] == 0:
@@ -102,7 +99,7 @@ class EnvironmentEpisodeSync:
                   .format(self.episode_num, self.config['total_training_episodes'], episodeReward), flush=True)
           
         if self.logwriter is not None:
-            logger.append(self.name + '/EpisodeReward', episodeReward)
-            self.logwriter.write(logger)
+            rltorch.log.Logger[self.name + '/EpisodeReward'].append(episodeReward)
+            self.logwriter.write(rltorch.log.Logger)
     
         self.episode_num += 1

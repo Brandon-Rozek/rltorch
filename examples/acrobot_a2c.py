@@ -8,6 +8,7 @@ import rltorch.memory as M
 import rltorch.env as E
 from rltorch.action_selector import StochasticSelector
 from tensorboardX import SummaryWriter
+from rltorch.log import Logger
 
 #
 ## Networks
@@ -68,65 +69,55 @@ config['disable_cuda'] = False
 #
 ## Training Loop
 #
-def train(runner, agent, config, logger = None, logwriter = None):
+def train(runner, agent, config, logwriter=None):
     finished = False
     while not finished:
         runner.run()
         agent.learn()
         if logwriter is not None:
-          agent.value_net.log_named_parameters()
-          agent.policy_net.log_named_parameters()
-          logwriter.write(logger)
+            agent.value_net.log_named_parameters()
+            agent.policy_net.log_named_parameters()
+            logwriter.write(Logger)
         finished = runner.episode_num > config['total_training_episodes']
 
 
 if __name__ == "__main__":
-  # Setting up the environment
-  rltorch.set_seed(config['seed'])
-  print("Setting up environment...", end = " ")
-  env = E.TorchWrap(gym.make(config['environment_name']))
-  env.seed(config['seed'])
-  print("Done.")
-      
-  state_size = env.observation_space.shape[0]
-  action_size = env.action_space.n
+    # Setting up the environment
+    rltorch.set_seed(config['seed'])
+    print("Setting up environment...", end=" ")
+    env = E.TorchWrap(gym.make(config['environment_name']))
+    env.seed(config['seed'])
+    print("Done.")
 
-  # Logging
-  logger = rltorch.log.Logger()
-  logwriter = rltorch.log.LogWriter(SummaryWriter())
-
-  # Setting up the networks
-  device = torch.device("cuda:0" if torch.cuda.is_available() and not config['disable_cuda'] else "cpu")
-  policy_net = rn.Network(Policy(state_size, action_size), 
-                      torch.optim.Adam, config, device = device, name = "Policy")
-  value_net = rn.Network(Value(state_size), 
-                      torch.optim.Adam, config, device = device, name = "DQN")
-
-
-  # Memory stores experiences for later training
-  memory = M.EpisodeMemory()
-
-  # Actor takes a net and uses it to produce actions from given states
-  actor = StochasticSelector(policy_net, action_size, memory, device = device)
-
-  # Agent is what performs the training
-  agent = rltorch.agents.A2CSingleAgent(policy_net, value_net, memory, config, logger = logger)
-
-  # Runner performs one episode in the environment
-  runner = rltorch.env.EnvironmentEpisodeSync(env, actor, config, name = "Training", memory = memory, logwriter = logwriter)
+    state_size = env.observation_space.shape[0]
+    action_size = env.action_space.n
+    # Logging
+    logwriter = rltorch.log.LogWriter(SummaryWriter())
+    # Setting up the networks
+    device = torch.device("cuda:0" if torch.cuda.is_available() and not config['disable_cuda'] else "cpu")
+    policy_net = rn.Network(Policy(state_size, action_size),
+                        torch.optim.Adam, config, device=device, name="Policy")
+    value_net = rn.Network(Value(state_size), 
+                        torch.optim.Adam, config, device=device, name="DQN")
+    # Memory stores experiences for later training
+    memory = M.EpisodeMemory()
+    # Actor takes a net and uses it to produce actions from given states
+    actor = StochasticSelector(policy_net, action_size, memory, device = device)
+    # Agent is what performs the training
+    agent = rltorch.agents.A2CSingleAgent(policy_net, value_net, memory, config)
+    # Runner performs one episode in the environment
+    runner = rltorch.env.EnvironmentEpisodeSync(env, actor, config, name="Training", memory=memory, logwriter=logwriter)
     
-  print("Training...")
-  train(runner, agent, config, logger = logger, logwriter = logwriter) 
+    print("Training...")
+    train(runner, agent, config, logwriter=logwriter)
 
-  # For profiling...
-  # import cProfile
-  # cProfile.run('train(runner, agent, config, logger = logger, logwriter = logwriter )')
-  # python -m torch.utils.bottleneck /path/to/source/script.py [args] is also a good solution...
+    # For profiling...
+    # import cProfile
+    # cProfile.run('train(runner, agent, config, logwriter = logwriter )')
+    # python -m torch.utils.bottleneck /path/to/source/script.py [args] is also a good solution...
 
-  print("Training Finished.")
-
-  print("Evaluating...")
-  rltorch.env.simulateEnvEps(env, actor, config, total_episodes = config['total_evaluation_episodes'], logger = logger, name = "Evaluation")
-  print("Evaulations Done.")
-
-  logwriter.close() # We don't need to write anything out to disk anymore
+    print("Training Finished.") 
+    print("Evaluating...")
+    rltorch.env.simulateEnvEps(env, actor, config, total_episodes = config['total_evaluation_episodes'], name="Evaluation")
+    print("Evaulations Done.")
+    logwriter.close() # We don't need to write anything out to disk anymore

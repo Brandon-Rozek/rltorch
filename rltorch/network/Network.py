@@ -1,3 +1,5 @@
+import rltorch.log as log
+
 class Network:
     """
     Wrapper around model and optimizer in PyTorch to abstract away common use cases.
@@ -12,12 +14,10 @@ class Network:
       A dictionary of configuration items.
     device
       A device to send the weights to.
-    logger
-      Keeps track of historical weights
     name
       For use in logger to differentiate in analysis.
     """
-    def __init__(self, model, optimizer, config, device=None, logger=None, name=""):
+    def __init__(self, model, optimizer, config, device=None, name=""):
         self.model = model
         if 'weight_decay' in config:
             self.optimizer = optimizer(
@@ -27,7 +27,6 @@ class Network:
             )
         else:
             self.optimizer = optimizer(model.parameters(), lr=config['learning_rate'])
-        self.logger = logger
         self.name = name
         self.device = device
         if self.device is not None:
@@ -63,8 +62,8 @@ class Network:
         self.optimizer.step()
     
     def log_named_parameters(self):
-        if self.logger is not None:
+        if log.enabled:
             for name, param in self.model.named_parameters():
-                self.logger.append(self.name + "/" + name, param.cpu().detach().numpy())
+                log.Logger[self.name + "/" + name].append(param.cpu().detach().numpy())
 
     

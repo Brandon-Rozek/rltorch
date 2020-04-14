@@ -2,7 +2,7 @@ from copy import deepcopy
 import numpy as np
 import torch
 from .Network import Network
-
+import rltorch.log as log
 
 # [TODO] Should we torch.no_grad the __call__?
 # What if we want to sometimes do gradient descent as well?
@@ -34,13 +34,11 @@ class ESNetwork(Network):
       A dictionary of configuration items.
     device
       A device to send the weights to.
-    logger
-      Keeps track of historical weights
     name
       For use in logger to differentiate in analysis.
     """
-    def __init__(self, model, optimizer, population_size, fitness_fn, config, sigma=0.05, device=None, logger=None, name=""):
-        super(ESNetwork, self).__init__(model, optimizer, config, device, logger, name)
+    def __init__(self, model, optimizer, population_size, fitness_fn, config, sigma=0.05, device=None, name=""):
+        super(ESNetwork, self).__init__(model, optimizer, config, device, name)
         self.population_size = population_size
         self.fitness = fitness_fn
         self.sigma = sigma
@@ -105,8 +103,8 @@ class ESNetwork(Network):
             [self.fitness(x, *args) for x in candidate_solutions],
             device=self.device
         )
-        if self.logger is not None:
-            self.logger.append(self.name + "/" + "fitness_value", fitness_values.mean().item())
+        if log.enabled:
+            log.Logger[self.name + "/" + "fitness_value"].append(fitness_values.mean().item())
         fitness_values = (fitness_values - fitness_values.mean()) / (fitness_values.std() + np.finfo('float').eps)
 
         ## Insert adjustments into gradients slot

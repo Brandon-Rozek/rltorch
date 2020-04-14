@@ -14,13 +14,8 @@ This is a dictionary that is shared around the different components. Contains hy
 ### Environment
 This component needs to support the standard openai functions reset and step.
 
-### Logger
-For Tensorboard to work, you need to define a logger that will (optionally) later go into the network, runner, and agent/trainer.
-
-Due to issues with multiprocessing, the Logger is a shared dictionary of lists that get appended to and the LogWriter writes on the main thread.
-
 ### Network
-A network takes a PyTorch nn.Module, PyTorch optimizer, configuration, and the optional logger.
+A network takes a PyTorch nn.Module, PyTorch optimizer, and configuration.
 
 ### Target Network
 Takes in a network and provides methods to sync a copy of the original network.

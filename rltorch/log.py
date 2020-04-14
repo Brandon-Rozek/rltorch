@@ -3,6 +3,7 @@ from typing import Dict, List, Any
 import numpy as np
 import torch
 
+enabled = False
 Logger: Dict[Any, List[Any]] = defaultdict(list)
 
 class LogWriter:

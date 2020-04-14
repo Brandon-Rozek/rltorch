@@ -3,6 +3,7 @@ import numpy as np
 import torch
 import torch.multiprocessing as mp
 from .Network import Network
+import rltorch.log as log
 
 class fn_copy:
     def __init__(self, fn, args):
@@ -19,8 +20,8 @@ class ESNetworkMP(Network):
     fitness_fun := model, *args -> fitness_value (float)
     We wish to find a model that maximizes the fitness function
     """
-    def __init__(self, model, optimizer, population_size, fitness_fn, config, sigma=0.05, device=None, logger=None, name=""):
-        super(ESNetworkMP, self).__init__(model, optimizer, config, device, logger, name)
+    def __init__(self, model, optimizer, population_size, fitness_fn, config, sigma=0.05, device=None, name=""):
+        super(ESNetworkMP, self).__init__(model, optimizer, config, device, name)
         self.population_size = population_size
         self.fitness = fitness_fn
         self.sigma = sigma
@@ -76,8 +77,8 @@ class ESNetworkMP(Network):
             device=self.device
         )
 
-        if self.logger is not None:
-            self.logger.append(self.name + "/" + "fitness_value", fitness_values.mean().item())
+        if log.enabled:
+            log.Logger[self.name + "/" + "fitness_value"].append(fitness_values.mean().item())
         fitness_values = (fitness_values - fitness_values.mean()) / (fitness_values.std() + np.finfo('float').eps)
 
         ## Insert adjustments into gradients slot

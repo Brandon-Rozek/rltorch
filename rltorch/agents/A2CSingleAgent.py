@@ -2,14 +2,14 @@ from copy import deepcopy
 import numpy as np
 import torch
 import torch.nn.functional as F
+import rltorch.log as log
 
 class A2CSingleAgent:
-    def __init__(self, policy_net, value_net, memory, config, logger=None):
+    def __init__(self, policy_net, value_net, memory, config):
         self.policy_net = policy_net
         self.value_net = value_net
         self.memory = memory
         self.config = deepcopy(config)
-        self.logger = logger
 
     def _discount_rewards(self, rewards):
         gammas = torch.ones_like(rewards)
@@ -79,9 +79,9 @@ class A2CSingleAgent:
 
         policy_loss = (-log_prob_batch * advantages).sum()
     
-        if self.logger is not None:
-            self.logger.append("Loss/Policy", policy_loss.item())
-            self.logger.append("Loss/Value", value_loss.item())
+        if log.enabled:
+            log.Logger["Loss/Policy"].append(policy_loss.item())
+            log.Logger["Loss/Value"].append(value_loss.item())
 
     
         self.policy_net.zero_grad()

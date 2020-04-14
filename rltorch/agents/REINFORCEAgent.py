@@ -4,14 +4,13 @@ import torch
 import rltorch
 
 class REINFORCEAgent:
-    def __init__(self, net, memory, config, target_net=None, logger=None):
+    def __init__(self, net, memory, config, target_net=None):
         self.net = net
         if not isinstance(memory, rltorch.memory.EpisodeMemory):
             raise ValueError("Memory must be of instance EpisodeMemory")
         self.memory = memory
         self.config = deepcopy(config)
         self.target_net = target_net
-        self.logger = logger
 
     # Shaped rewards implements three improvements to REINFORCE
     # 1) Discounted rewards, future rewards matter less than current
@@ -42,8 +41,8 @@ class REINFORCEAgent:
 
         policy_loss = (-log_prob_batch * shaped_reward_batch).sum()
 
-        if self.logger is not None:
-            self.logger.append("Loss", policy_loss.item())
+        if rltorch.log.enabled:
+            rltorch.log.Logger["Loss"].append(policy_loss.item())
 
         self.net.zero_grad()
         policy_loss.backward()

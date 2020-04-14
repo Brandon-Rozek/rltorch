@@ -3,15 +3,15 @@ import torch
 import torch.nn.functional as F
 from torch.distributions import Categorical
 import rltorch
+import rltorch.log as log
 
 class PPOAgent:
-    def __init__(self, policy_net, value_net, memory, config, logger=None):
+    def __init__(self, policy_net, value_net, memory, config):
         self.policy_net = policy_net
         self.old_policy_net = rltorch.network.TargetNetwork(policy_net)
         self.value_net = value_net
         self.memory = memory
         self.config = deepcopy(config)
-        self.logger = logger
 
     def _discount_rewards(self, rewards):
         gammas = torch.ones_like(rewards)
@@ -59,9 +59,9 @@ class PPOAgent:
         policy_loss2 = policy_ratio.clamp(min=0.8, max=1.2) * advantages # From original paper
         policy_loss = -torch.min(policy_loss1, policy_loss2).sum()
     
-        if self.logger is not None:
-            self.logger.append("Loss/Policy", policy_loss.item())
-            self.logger.append("Loss/Value", value_loss.item())
+        if log.enabled:
+            log.Logger["Loss/Policy"].append(policy_loss.item())
+            log.Logger["Loss/Value"].append(value_loss.item())
 
         self.old_policy_net.sync()
         self.policy_net.zero_grad()
